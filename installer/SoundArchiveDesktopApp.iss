@@ -28,7 +28,6 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
   TestPath: string;
-  TestHandle: Integer;
 begin
   Result := True;
   if CurPageID = wpSelectDir then
@@ -45,8 +44,7 @@ begin
     TestPath := AddBackslash(WizardDirValue) + '.soundcloud-archive-write-test';
     while FileExists(TestPath) do
       TestPath := TestPath + '-';
-    TestHandle := FileCreate(TestPath);
-    if TestHandle = -1 then
+    if not SaveStringToFile(TestPath, 'SoundArchive write test', False) then
     begin
       MsgBox(
         'You do not have permission to install to the selected folder. Choose a folder you can modify, such as ' +
@@ -55,7 +53,6 @@ begin
       Result := False;
       Exit;
     end;
-    FileClose(TestHandle);
     DeleteFile(TestPath);
   end;
 end;
