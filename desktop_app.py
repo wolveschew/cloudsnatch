@@ -48,7 +48,7 @@ def smoke_test() -> None:
                 continue
             with page_response:
                 page = page_response.read().decode("utf-8")
-                if page_response.status != 200 or "SoundSnatch" not in page or "Following lists" not in page:
+                if page_response.status != 200 or "CloudSnatch" not in page or "Following lists" not in page:
                     raise RuntimeError("The packaged desktop UI did not return its expected page.")
             for resource in ("/static/app.js", "/static/style.css"):
                 with urllib.request.urlopen(url + resource, timeout=10) as response:
@@ -78,7 +78,7 @@ def main() -> None:
     server_thread.start()
     try:
         webview.create_window(
-            "SoundSnatch",
+            "CloudSnatch",
             f"http://127.0.0.1:{server.server_port}",
             min_size=(760, 620),
         )
@@ -102,7 +102,7 @@ def show_startup_error(exc: Exception) -> None:
         f"{details}\n\n"
         f"Startup details were saved to:\n{log_path}\n\n"
         "On Windows, confirm that Microsoft Edge WebView2 Runtime is installed, "
-        "then try launching SoundSnatch again."
+        "then try launching CloudSnatch again."
     )
     try:
         import tkinter
@@ -110,7 +110,7 @@ def show_startup_error(exc: Exception) -> None:
 
         root = tkinter.Tk()
         root.withdraw()
-        messagebox.showerror("SoundSnatch could not start", message, parent=root)
+        messagebox.showerror("CloudSnatch could not start", message, parent=root)
         root.destroy()
     except Exception:
         print(message, file=sys.stderr)

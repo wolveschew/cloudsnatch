@@ -4,34 +4,35 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#111112">
-  <title>SoundSnatch</title>
+  <title>CloudSnatch — SoundCloud Likes &amp; Playlist Exporter</title>
+  <meta name="description" content="CloudSnatch saves public SoundCloud likes and playlists as CSV and JSON on Windows and macOS. No login, audio downloads, or analytics.">
+  <meta name="keywords" content="SoundCloud likes export, SoundCloud playlist export, SoundCloud CSV, SoundCloud JSON, Windows, macOS, CloudSnatch">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
-      <a class="brand-lockup" href="/" aria-label="SoundSnatch home">
-        <span class="brand-mark" aria-hidden="true">SS</span>
-        <span><span class="brand">SOUND<b>SNATCH</b></span><span class="subbrand">Personal collection exporter</span></span>
+      <a class="brand-lockup" href="/" aria-label="CloudSnatch home">
+        <span class="brand-mark" aria-hidden="true">CS</span>
+        <span><span class="brand">CLOUD<b>SNATCH</b></span><span class="subbrand">SoundCloud likes &amp; playlist exporter</span></span>
       </a>
       <span class="local-badge"><i></i> LOCAL ONLY</span>
     </header>
 
     <section class="hero">
-      <p class="eyebrow"><span class="eyebrow-line"></span> A QUIETER KIND OF BACKUP</p>
-      <h1>Your SoundCloud.<br><em>On your terms.</em></h1>
-      <p class="intro">Save public likes and playlists as CSV and JSON files, organized into a separate folder for each profile.</p>
+      <h1>Export SoundCloud<br><em>likes and playlists.</em></h1>
+      <p class="intro">Save public collections as CSV and JSON. Watch items as they’re saved, then open that profile’s folder.</p>
       <form id="export-form">
         <label for="profile-url">Public profile URL</label>
         <div class="input-row">
           <input id="profile-url" type="url" autocomplete="url" placeholder="https://soundcloud.com/artist" required>
           <button id="start" type="submit"><span aria-hidden="true">↓</span> Export collections</button>
         </div>
-        <p class="hint">Only public collections are supported. Each profile gets its own folder; checkpoints are reused when you resume.</p>
+        <p class="hint">No login required. Only public profiles are supported. Exports stay in a separate folder for each profile.</p>
       </form>
 
       <details class="settings">
-        <summary><span class="settings-icon" aria-hidden="true">⚙</span> Appearance settings</summary>
+        <summary><span class="settings-icon" aria-hidden="true">⚙</span> Appearance</summary>
         <div class="settings-body">
           <label for="accent-setting">Accent color</label>
           <select id="accent-setting">
@@ -49,11 +50,11 @@
 
     <section class="results" aria-labelledby="archive-title" aria-live="polite">
       <div class="section-head">
-        <div><p class="eyebrow">YOUR LOCAL BACKUP</p><h2 id="archive-title">Export status</h2></div>
+        <div><h2 id="archive-title">Export status</h2></div>
         <span id="status-pill" class="pill">READY</span>
       </div>
       <div class="progress-track" role="progressbar" aria-label="Export progress"><div id="progress-bar"></div></div>
-      <p id="status-text" class="status-text">Enter a public profile URL to begin. Your archive stays on this device.</p>
+      <p id="status-text" class="status-text">Paste a public profile URL to begin.</p>
 
       <div class="cards">
         <article class="card" id="likes-card">
@@ -74,8 +75,8 @@
       </div>
 
       <details class="write-preview">
-        <summary>Latest collection item</summary>
-        <p id="preview-status" class="preview-status">Item details appear while a public collection is being processed.</p>
+        <summary>Latest export item</summary>
+        <p id="preview-status" class="preview-status">The latest item appears here while the export runs.</p>
         <div class="preview-columns">
           <div><h3>JSON record</h3><pre id="json-preview">Waiting for an item…</pre></div>
           <div><h3>CSV columns + row</h3><pre id="csv-preview">Waiting for an item…</pre></div>
@@ -85,15 +86,15 @@
       <div id="error-box" class="error-box hidden" role="alert"></div>
       <div class="report-row">
         <a id="report-link" href="/api/files/report.json">Download status report</a>
-        <button type="button" id="retry" class="text-button">Re-fetch completed collections</button>
+        <button type="button" id="retry" class="text-button">Start over and replace saved files</button>
       </div>
     </section>
 
     <aside class="notice">
       <span class="notice-mark" aria-hidden="true">!</span>
-      <p><strong>Public metadata only.</strong> No login, browser cookies, private API, audio download, automated likes/follows, or bot-detection evasion. “Complete” means the public extractor finished returning items; it does not verify that every SoundCloud item was included. Private account access is not available in this build.</p>
+      <p><strong>Public metadata only.</strong> CloudSnatch does not sign in, download audio, or send your archive to a CloudSnatch server. SoundCloud may omit results; “complete” means the public extractor finished, not that every item was found.</p>
     </aside>
-    <footer><span>Made for personal archiving</span><span>Not affiliated with SoundCloud</span></footer>
+    <footer><span>Open source · No app analytics</span><span>Independent of SoundCloud</span></footer>
   </main>
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </body>

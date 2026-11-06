@@ -1,87 +1,100 @@
 <div align="center">
 
-# 🎧 SoundSnatch
+# CloudSnatch — SoundCloud Likes & Playlist Export App
 
-Save metadata from **public SoundCloud likes and playlists** as CSV and JSON files on your computer. Each profile is kept in its own folder, with live export status and resumable local checkpoints.
+Save metadata from **public SoundCloud likes and playlists** as CSV and JSON files. CloudSnatch is an open-source app for **Windows, macOS, and Android**. It runs on your device: no CloudSnatch account, sign-in, or analytics.
 
-[![Latest release](https://img.shields.io/github/v/release/wolveschew/soundsnatch?style=for-the-badge&color=ff5500)](https://github.com/wolveschew/soundsnatch/releases/latest)
-[![Build status](https://img.shields.io/github/actions/workflow/status/wolveschew/soundsnatch/build-desktop.yml?branch=main&style=for-the-badge&label=Windows%20%26%20macOS%20builds)](https://github.com/wolveschew/soundsnatch/actions/workflows/build-desktop.yml)
+[![Latest release](https://img.shields.io/github/v/release/wolveschew/cloudsnatch?style=for-the-badge&color=ff5500)](https://github.com/wolveschew/cloudsnatch/releases/latest)
+[![Builds](https://img.shields.io/github/actions/workflow/status/wolveschew/cloudsnatch/build-desktop.yml?branch=main&style=for-the-badge&label=Windows%20macOS%20Android)](https://github.com/wolveschew/cloudsnatch/actions/workflows/build-desktop.yml)
+[![MIT license](https://img.shields.io/github/license/wolveschew/cloudsnatch?style=for-the-badge)](LICENSE)
 
-## 🚀 Install first
+## Install first
 
-Choose your computer to download the installer:
-
-<a href="https://github.com/wolveschew/soundsnatch/releases/latest/download/SoundSnatchSetup.exe"><img alt="Download Windows installer" src="https://img.shields.io/badge/Download-Windows%20installer-0078D4?style=for-the-badge&logo=windows&logoColor=white"></a>
+<a href="https://github.com/wolveschew/cloudsnatch/releases/latest"><img alt="Download CloudSnatch for Windows" src="https://img.shields.io/badge/Download-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white"></a>
 &nbsp;
-<a href="https://github.com/wolveschew/soundsnatch/releases/latest/download/SoundSnatch.dmg"><img alt="Download macOS app" src="https://img.shields.io/badge/Download-macOS%20app-555555?style=for-the-badge&logo=apple&logoColor=white"></a>
+<a href="https://github.com/wolveschew/cloudsnatch/releases/latest"><img alt="Download CloudSnatch for macOS" src="https://img.shields.io/badge/Download-macOS-555555?style=for-the-badge&logo=apple&logoColor=white"></a>
+&nbsp;
+<img alt="Android APK in testing; not yet released" src="https://img.shields.io/badge/Android-APK%20in%20testing-777777?style=for-the-badge&logo=android&logoColor=white">
 
-[See all releases](https://github.com/wolveschew/soundsnatch/releases)
-
-Ready-to-install downloads are available for Windows and macOS. A Linux installer is not currently published.
+[Browse all releases](https://github.com/wolveschew/cloudsnatch/releases)
 
 </div>
 
-> 👋 Download the installer for your computer, then follow the steps below. You do not need to open GitHub Actions or download source code.
+> **Android release status:** the Android app is being tested. Its APK will be published after a protected release-signing key is configured; the test build is not presented as a production download. The current v1.1.0 desktop assets still use the former SoundSnatch filenames.
 
-### 🪟 Windows
+### Windows
 
-1. Download and open **SoundSnatchSetup.exe**.
-2. If Windows SmartScreen warns that the app is unsigned, check that you downloaded it from this repository's Releases page before choosing **Run anyway**.
-3. Keep the suggested install folder, or choose another folder where your Windows account can create files.
-4. Finish setup and launch **SoundSnatch** from the Start menu. Setup installs Microsoft's WebView2 Runtime if needed.
+1. Download and open the latest Windows `.exe` from [Releases](https://github.com/wolveschew/cloudsnatch/releases/latest).
+2. If Windows warns that the app is unsigned, verify you downloaded it from this repository's Releases page before continuing.
+3. Keep the suggested install folder, then open CloudSnatch from the Start menu. Setup installs Microsoft Edge WebView2 if needed.
 
-### 🍎 macOS
+### macOS
 
-1. Download and open **SoundSnatch.dmg**.
-2. Drag **SoundSnatch** to your **Applications** folder.
+1. Download and open the latest `.dmg` from [Releases](https://github.com/wolveschew/cloudsnatch/releases/latest).
+2. Drag **CloudSnatch** to Applications.
 3. The app is unsigned. The first time you open it, Control-click the app, choose **Open**, and confirm the macOS warning.
 
-## 🎵 Export public collections
+### Android
+
+The Android app supports Android 10 and newer. A signed release APK is not available until the repository's protected signing key is configured. Do not install a debug APK as a release.
+
+## Export your public collections
 
 1. Paste a public SoundCloud profile URL, such as `https://soundcloud.com/artist`.
-2. Select **Export collections** and keep SoundSnatch open while it works.
-3. Expand **Latest collection item** to inspect the JSON record and CSV row as the export runs.
-4. Select **Open folder** to show that profile's CSV and JSON files in your system file manager.
+2. Select **Export or resume** and keep the app open while it works.
+3. Watch likes and playlist status, counts, errors, and the latest CSV/JSON item as it is processed.
+4. Open the saved files:
+   - **Windows and macOS:** choose **Open folder** for that profile.
+   - **Android:** files are saved in `Downloads/CloudSnatch/<profile>/`; use **Open Downloads** or **Share files**.
 
-Likes and playlists are exported separately. The app reports per-category counts, errors, and completion state; it saves JSON checkpoints every 25 new items and updates the CSV as items arrive. Resuming refetches the public collection from its beginning and skips IDs already present in the checkpoint. It does not seek directly to the last saved item. **Re-fetch completed collections** discards the saved checkpoint for the selected profile and starts again.
+Each profile has a separate folder. JSON checkpoints are saved every 25 new items; CSV rows are flushed as items arrive. Resuming refetches the public collection from the beginning and skips IDs already in the saved checkpoint. It does not seek directly to the last saved item. **Start over** replaces the files for the selected profile only.
 
-### 📂 Files and accounts
+## What it does—and does not do
 
-Every profile URL is assigned a separate folder so you can export multiple profiles without mixing their files. Open the same profile URL again to resume that profile's checkpoint. On first use, matching archives from the older single-profile layout are copied into that account folder; the originals are left untouched.
+- Exports metadata from **public likes and playlists** as CSV and JSON.
+- Keeps checkpoints and working data on your device. Android asks for no broad storage permission; it uses Android's Downloads media collection for files it creates.
+- Makes public SoundCloud requests directly from your device using yt-dlp's maintained SoundCloud extractor. The app has no CloudSnatch server, ads, analytics, or account system.
+- **Does not support following or follower lists**, private accounts, login, OAuth, browser cookies, audio downloads, automated likes/follows, private endpoints, or bot-detection evasion.
+- A **complete** status means the extractor finished normally. It does not prove that every item was returned; public visibility, pagination, rate limits, and extractor behavior can limit results.
 
-| System | Data folder |
-| --- | --- |
-| Windows | `%LOCALAPPDATA%\SoundCloud Archive\accounts` |
-| macOS | `~/Library/Application Support/SoundCloud Archive/accounts` |
-| Linux | `$XDG_DATA_HOME/soundcloud-archive/accounts` or `~/.local/share/soundcloud-archive/accounts` |
+CloudSnatch is independent and is not affiliated with or endorsed by SoundCloud. Review SoundCloud's current [API Terms of Use](https://developers.soundcloud.com/docs/api/terms-of-use) before archiving content.
 
-Each account folder contains `likes.json`, `likes.csv`, `playlists.json`, `playlists.csv`, `report.json`, and `state.json` as they become available. JSON retains the metadata returned by the public extractor. CSV includes common fields such as ID, title, URL, uploader, duration, and description. Settings and older exports remain in the existing **SoundCloud Archive** data directory.
+## Developer details
 
-## 🔒 Scope and limitations
+CloudSnatch is MIT-licensed. The Windows and macOS desktop apps use Python, Flask, pywebview, and yt-dlp. Android uses a native Kotlin/Jetpack Compose interface and the same Python exporter packaged with Chaquopy. Android writes only to its private app directory and to the Downloads files it creates; it does not request access to the rest of the device's storage.
 
-- Public likes and playlists only. **Following and follower lists are unsupported**; no verified public method is used.
-- No SoundCloud login, OAuth, browser-cookie import, private endpoint, automated likes/follows, audio download, or bot-detection evasion.
-- SoundSnatch uses yt-dlp's maintained public SoundCloud extractor. Public visibility, pagination, rate limits, and extractor behavior can limit results. A **complete** status means the extractor iterator ended normally; it does not prove that every item was returned.
-- SoundcloudSnapshot's old client-ID collection calls and SCDL-GUI-AIO's browser-cookie/private extractor workflow are not integrated. SCDL-GUI-AIO downloads audio; it is not a CSV/JSON collection exporter.
-- SoundCloud's current official API requires a registered app and OAuth for user resources. This app does not bypass that authorization. Review SoundCloud's current [API Terms of Use](https://developers.soundcloud.com/docs/api/terms-of-use), including its restrictions on saving or persistently storing User Content, before using any exporter.
-- SoundSnatch is not affiliated with or endorsed by SoundCloud.
-
-## 🧰 Troubleshooting
-
-**The folder does not open:** enter a valid public profile URL and choose **Open folder** again. The app creates the profile folder if it does not exist and reports any operating-system error.
-
-**A collection fails or seems incomplete:** confirm the profile and collection are public, review `report.json`, and retry later. The export only contains items the public extractor could return.
-
-**The app does not open:** install the latest release. Windows requires Microsoft Edge WebView2 Runtime; setup installs it if needed. If startup still fails, check `startup-error.log` in the **SoundCloud Archive** data folder (the parent of `accounts` in the table above).
-
-**Unsigned app warning:** only continue if you downloaded SoundSnatch from this repository's Releases page and trust the source.
-
-## 🛠️ For contributors
-
-Run the offline test suite with Python 3.10 or later:
+### Run the tests
 
 ```sh
 python -m unittest discover -s tests -v
 ```
 
-GitHub Actions runs tests and builds the Windows and macOS apps. A version-tagged release is published only after both platform builds succeed.
+Android builds use JDK 17, Gradle 8.11.1, and Python 3.12:
+
+```sh
+gradle -p android :app:testDebugUnitTest :app:assembleDebug
+gradle -p android :app:connectedDebugAndroidTest
+```
+
+The GitHub Actions workflow runs the desktop tests and builds, Android unit tests, and an Android emulator UI test. A version-tagged release publishes Windows and macOS installers and a **release-signed** Android APK after all platform jobs pass.
+
+### Configure Android release signing
+
+Android updates must keep the same signing certificate. Create a release keystore privately and keep a secure backup; never commit the keystore or passwords. Configure these four repository Actions secrets before creating a release tag:
+
+- `CLOUDSNATCH_ANDROID_KEYSTORE_BASE64` — Base64-encoded keystore file.
+- `CLOUDSNATCH_ANDROID_KEYSTORE_PASSWORD` — keystore password.
+- `CLOUDSNATCH_ANDROID_KEY_ALIAS` — key alias.
+- `CLOUDSNATCH_ANDROID_KEY_PASSWORD` — key password.
+
+For example, on Windows, encode your private `.jks` file with:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("cloudsnatch-upload.jks"))
+```
+
+Store that output directly as the GitHub Actions secret; do not paste it into a commit or issue. The release workflow stops if any signing secret is missing, and verifies the APK signature before attaching it.
+
+### Privacy and security
+
+There is no app telemetry, advertising, user account, or CloudSnatch-operated export server. Public collection requests go directly from the app to SoundCloud and any hosts used by its public extractor. Export files are local unless you explicitly share them from Android. Report security issues through GitHub's private **Security → Advisories → Report a vulnerability** flow for this repository.

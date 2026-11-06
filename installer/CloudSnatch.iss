@@ -4,14 +4,14 @@
 
 [Setup]
 AppId={{4F09DD22-2DC7-4DFB-8A96-ED1F0C27C486}
-AppName=SoundSnatch
+AppName=CloudSnatch
 AppVersion={#AppVersion}
 AppPublisher=wolveschew
-DefaultDirName={localappdata}\Programs\SoundSnatch
-DefaultGroupName=SoundSnatch
-UninstallDisplayIcon={app}\SoundSnatch.exe
+DefaultDirName={localappdata}\Programs\CloudSnatch
+DefaultGroupName=CloudSnatch
+UninstallDisplayIcon={app}\CloudSnatch.exe
 OutputDir=..\dist
-OutputBaseFilename=SoundSnatchSetup
+OutputBaseFilename=CloudSnatchSetup
 SetupIconFile=
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64
@@ -41,14 +41,14 @@ begin
       Exit;
     end;
 
-    TestPath := AddBackslash(WizardDirValue) + '.soundsnatch-write-test';
+    TestPath := AddBackslash(WizardDirValue) + '.cloudsnatch-write-test';
     while FileExists(TestPath) do
       TestPath := TestPath + '-';
     if not SaveStringToFile(TestPath, 'SoundArchive write test', False) then
     begin
       MsgBox(
         'You do not have permission to install to the selected folder. Choose a folder you can modify, such as ' +
-        ExpandConstant('{localappdata}\Programs\SoundSnatch') + '.',
+        ExpandConstant('{localappdata}\Programs\CloudSnatch') + '.',
         mbError, MB_OK);
       Result := False;
       Exit;
@@ -61,13 +61,13 @@ end;
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
 
 [Files]
-Source: "..\dist\SoundSnatch\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\CloudSnatch\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\dist\MicrosoftEdgeWebView2Setup.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\SoundSnatch"; Filename: "{app}\SoundSnatch.exe"
-Name: "{autodesktop}\SoundSnatch"; Filename: "{app}\SoundSnatch.exe"; Tasks: desktopicon
+Name: "{group}\CloudSnatch"; Filename: "{app}\CloudSnatch.exe"
+Name: "{autodesktop}\CloudSnatch"; Filename: "{app}\CloudSnatch.exe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\MicrosoftEdgeWebView2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "Installing Microsoft Edge WebView2 Runtime..."; Flags: waituntilterminated
-Filename: "{app}\SoundSnatch.exe"; Description: "Launch SoundSnatch"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\CloudSnatch.exe"; Description: "Launch CloudSnatch"; Flags: postinstall nowait skipifsilent
