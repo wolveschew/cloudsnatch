@@ -1,36 +1,57 @@
 # SoundCloud Archive
 
-A small local web app for exporting **publicly available** SoundCloud likes and playlists as JSON. It never asks for login credentials, cookies, or tokens. Data is saved on your computer.
+A simple local desktop app for saving **publicly accessible** SoundCloud likes and playlists as JSON. The app does not ask for an account login, password, cookies, or token. It only uses yt-dlp's maintained public SoundCloud extractor; it does not call undocumented endpoints.
 
-## Run it (Windows)
+## Install a packaged app
 
-1. Download this repository as a ZIP from the green **Code** button and choose **Download ZIP**. Extract the ZIP.
-2. Open the extracted folder in File Explorer. Click the address bar, type `cmd`, and press Enter.
-3. Install Python 3.10+ if needed, then run:
+Windows `.exe` and macOS `.dmg` builds are attached as artifacts to the **Build desktop apps** GitHub Actions workflow. Open a successful workflow run, download the artifact for your operating system, and launch the app. Windows builds require the Microsoft Edge WebView2 Runtime. macOS builds are unsigned; macOS may require Control-clicking the app and choosing **Open** the first time.
 
-   ```bat
-   py -m pip install -r requirements.txt
-   py app.py
-   ```
+The workflow builds artifacts for testing and download; it does not publish a release or sign the applications.
 
-4. Open **http://127.0.0.1:8765** in Chrome or another browser. Paste a public profile URL and click **Export data**.
-5. Download `likes.json`, `playlists.json`, and `report.json` from the page. Files are stored in the `soundcloud-export` folder beside the app.
+## Run from source
 
-## macOS/Linux
+Install Python 3.10 or later, then from the repository directory:
+
+**Windows**
+
+```powershell
+py -m pip install -r requirements.txt
+py desktop_app.py
+```
+
+**macOS**
 
 ```sh
 python3 -m pip install -r requirements.txt
-python3 app.py
+python3 desktop_app.py
 ```
 
-Then open http://127.0.0.1:8765.
+The app opens in a native window and serves its interface only on a loopback address. `python app.py` is also available for local browser-based development.
 
-## Pagination, checkpoints, and limitations
+## Data, checkpoints, and status
 
-The app uses yt-dlp's SoundCloud public collection extractor and does not set a page/entry cap; it consumes the collection iterator through completion. It checkpoints every 25 new entries and at completion. If interrupted, starting the same profile again resumes by refetching from the beginning and de-duplicating IDs against the checkpoint. Re-fetch restarts the categories.
+Exports and resumable checkpoints are saved under your user data directory:
 
-- Likes and playlists are exported only if SoundCloud makes them public and the extractor can retrieve them.
-- Followings are explicitly marked **unsupported**: the current supported extractor does not expose a followings collection. This app does not guess private or undocumented endpoints.
-- A collection is marked complete only after its iterator ends normally. Check `report.json` and the counts; no tool can guarantee data SoundCloud did not return.
-- This is an exporter, not a migration importer. It does not automate likes or follows, evade bot detection, or interact with destination accounts. SoundCloud's supported public interfaces do not provide a reliable bulk migration pathway for those actions.
-- The server binds to `127.0.0.1` only. Keep the app local; don't expose it to a public network.
+- Windows: `%LOCALAPPDATA%\SoundCloud Archive`
+- macOS: `~/Library/Application Support/SoundCloud Archive`
+- Linux: `$XDG_DATA_HOME/soundcloud-archive` or `~/.local/share/soundcloud-archive`
+
+`likes.json` and `playlists.json` contain the records returned by the extractor. The app atomically checkpoints every 25 new entries and when a collection ends or fails. Resume refetches the public collection from its beginning and de-duplicates against saved item IDs; it is not a seek into SoundCloud's collection. **Re-fetch completed collections** discards that category's old checkpoint and starts over. `report.json` records per-category status, counts, failures, and the unsupported category; `state.json` records checkpoint status. Incomplete files are retained for recovery and can be downloaded when present.
+
+## Scope and limitations
+
+- Likes and playlists are attempted only for a public profile and only through the supported yt-dlp extractor.
+- **Following lists are unsupported.** This app does not claim a verified public method and does not try private or undocumented endpoints.
+- A `complete` status means only that the extractor's returned iterator ended normally. This project has not verified live SoundCloud completeness; SoundCloud visibility, pagination, rate limits, and extractor behavior can limit results.
+- This is an exporter only. It has no login, account import, automated likes/follows, or bot-detection evasion.
+- Appearance preferences (accent color and compact cards) are stored locally in the desktop webview.
+
+## Tests and desktop builds
+
+Run the offline unit tests with:
+
+```sh
+python -m unittest discover -s tests -v
+```
+
+GitHub Actions runs those tests and builds the Windows executable and macOS disk image. Local builds require the packaging dependencies and a native build host for each operating system.

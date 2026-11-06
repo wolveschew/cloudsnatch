@@ -1,0 +1,66 @@
+name: Build desktop apps
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: soundcloud-archive-windows
+          - os: macos-latest
+            artifact: soundcloud-archive-macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt pyinstaller
+      - name: Run offline tests
+        run: python -m unittest discover -s tests -v
+      - name: Build Windows executable
+        if: runner.os == 'Windows'
+        run: >-
+          pyinstaller --noconfirm --clean --windowed --onefile
+          --name SoundCloudArchive
+          --add-data "templates;templates"
+          --add-data "static;static"
+          --collect-all webview
+          --collect-all yt_dlp
+          --hidden-import webview.platforms.edgechromium
+          desktop_app.py
+      - name: Build macOS application and disk image
+        if: runner.os == 'macOS'
+        run: |
+          pyinstaller --noconfirm --clean --windowed \
+            --name SoundCloudArchive \
+            --add-data "templates:templates" \
+            --add-data "static:static" \
+            --collect-all webview \
+            --collect-all yt_dlp \
+            --hidden-import webview.platforms.cocoa \
+            --osx-bundle-identifier com.wolveschew.soundcloudarchive \
+            desktop_app.py
+          hdiutil create \
+            -volname "SoundCloud Archive" \
+            -srcfolder "dist/SoundCloudArchive.app" \
+            -ov -format UDZO \
+            "dist/SoundCloudArchive.dmg"
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ runner.os == 'Windows' && 'dist/SoundCloudArchive.exe' || 'dist/SoundCloudArchive.dmg' }}
+          if-no-files-found: error

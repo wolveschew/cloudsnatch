@@ -3,113 +3,89 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111112">
   <title>SoundCloud Archive</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
-      <div class="brand-mark" aria-hidden="true">sc</div>
-      <div><div class="brand">SOUNDCLOUD <span>ARCHIVE</span></div><div class="subbrand">A local public-data exporter</div></div>
-      <div class="local-badge"><i></i> LOCAL ONLY</div>
+      <a class="brand-lockup" href="/" aria-label="SoundCloud Archive home">
+        <span class="brand-mark" aria-hidden="true">sc</span>
+        <span><span class="brand">SOUNDCLOUD <b>ARCHIVE</b></span><span class="subbrand">Personal collection exporter</span></span>
+      </a>
+      <span class="local-badge"><i></i> LOCAL ONLY</span>
     </header>
 
     <section class="hero">
-      <p class="eyebrow">YOUR COLLECTION, YOUR COMPUTER</p>
-      <h1>Keep your SoundCloud<br><em>close at hand.</em></h1>
-      <p class="intro">Export publicly available likes and playlists to JSON. No login, password, cookies, or account token is requested.</p>
+      <p class="eyebrow"><span class="eyebrow-line"></span> A QUIETER KIND OF BACKUP</p>
+      <h1>Your SoundCloud.<br><em>On your terms.</em></h1>
+      <p class="intro">Save publicly accessible likes and playlists as JSON on this computer. No account login, cookies, or tokens.</p>
       <form id="export-form">
         <label for="profile-url">Public profile URL</label>
         <div class="input-row">
-          <input id="profile-url" type="url" placeholder="https://soundcloud.com/artist" required>
-          <button id="start" type="submit"><span>↓</span> Export data</button>
+          <input id="profile-url" type="url" autocomplete="url" placeholder="https://soundcloud.com/artist" required>
+          <button id="start" type="submit"><span aria-hidden="true">↓</span> Export collections</button>
         </div>
-        <div class="hint">The whole available collection is paginated by yt-dlp. Existing completed exports are kept; use “Re-fetch” to start over.</div>
+        <p class="hint">Only data the public extractor can retrieve is included. Saved checkpoints are reused when you resume.</p>
       </form>
+
+      <details class="settings">
+        <summary><span class="settings-icon" aria-hidden="true">⚙</span> Appearance settings</summary>
+        <div class="settings-body">
+          <label for="accent-setting">Accent color</label>
+          <select id="accent-setting">
+            <option value="orange">SoundCloud orange</option>
+            <option value="amber">Amber</option>
+            <option value="blue">Electric blue</option>
+          </select>
+          <label class="compact-setting" for="compact-setting">
+            <span>Compact collection cards</span>
+            <input id="compact-setting" type="checkbox">
+          </label>
+        </div>
+      </details>
     </section>
 
-    <section class="results" aria-live="polite">
-      <div class="section-head"><div><p class="eyebrow">EXPORT STATUS</p><h2>Your archive</h2></div><span id="status-pill" class="pill">READY</span></div>
-      <div class="progress-track"><div id="progress-bar"></div></div>
-      <p id="status-text" class="status-text">Enter a profile URL to begin. This page stays open while the export runs.</p>
-      <div class="cards">
-        <article class="card"><div class="card-icon">♫</div><div><h3>Likes</h3><p id="likes-state">Waiting</p></div><a id="likes-link" class="download disabled" href="/api/files/likes.json">JSON ↓</a></article>
-        <article class="card"><div class="card-icon">▤</div><div><h3>Playlists</h3><p id="playlists-state">Waiting</p></div><a id="playlists-link" class="download disabled" href="/api/files/playlists.json">JSON ↓</a></article>
-        <article class="card"><div class="card-icon muted">♡</div><div><h3>Following</h3><p id="following-state">Not supported by the public extractor</p></div><span class="tag">UNAVAILABLE</span></article>
+    <section class="results" aria-labelledby="archive-title" aria-live="polite">
+      <div class="section-head">
+        <div><p class="eyebrow">YOUR LOCAL BACKUP</p><h2 id="archive-title">Export status</h2></div>
+        <span id="status-pill" class="pill">READY</span>
       </div>
-      <div id="error-box" class="error-box hidden"></div>
-      <div class="report-row"><a href="/api/files/report.json">Download export report</a><button type="button" id="retry" class="text-button">Re-fetch saved categories</button></div>
+      <div class="progress-track" role="progressbar" aria-label="Export progress"><div id="progress-bar"></div></div>
+      <p id="status-text" class="status-text">Enter a public profile URL to begin. Your archive stays on this device.</p>
+
+      <div class="cards">
+        <article class="card" id="likes-card">
+          <span class="card-icon" aria-hidden="true">♫</span>
+          <div class="card-copy"><h3>Likes</h3><p id="likes-state">Waiting</p></div>
+          <a id="likes-link" class="download disabled" href="/api/files/likes.json" aria-disabled="true">JSON <span aria-hidden="true">↓</span></a>
+        </article>
+        <article class="card" id="playlists-card">
+          <span class="card-icon playlist-icon" aria-hidden="true">▤</span>
+          <div class="card-copy"><h3>Playlists</h3><p id="playlists-state">Waiting</p></div>
+          <a id="playlists-link" class="download disabled" href="/api/files/playlists.json" aria-disabled="true">JSON <span aria-hidden="true">↓</span></a>
+        </article>
+        <article class="card unsupported-card">
+          <span class="card-icon muted" aria-hidden="true">♡</span>
+          <div class="card-copy"><h3>Following lists</h3><p id="following-state">Unsupported — no verified public method</p></div>
+          <span class="tag">UNSUPPORTED</span>
+        </article>
+      </div>
+
+      <div id="error-box" class="error-box hidden" role="alert"></div>
+      <div class="report-row">
+        <a id="report-link" href="/api/files/report.json">Download status report</a>
+        <button type="button" id="retry" class="text-button">Re-fetch completed collections</button>
+      </div>
     </section>
 
-    <aside class="notice"><strong>Export only — no automated likes or follows.</strong> SoundCloud does not provide a supported public migration flow for applying thousands of actions to another account. This app will not automate account actions or try to evade bot detection. Public data may be incomplete or unavailable; the report records status and errors.</aside>
-    <footer>Made for personal archiving · Data stays on this device · Not affiliated with SoundCloud</footer>
+    <aside class="notice">
+      <span class="notice-mark" aria-hidden="true">!</span>
+      <p><strong>Export only.</strong> No login, account import, automated likes or follows, or bot-detection evasion. Public visibility and extractor support can change; “complete” means the available extractor iterator ended normally, not that every SoundCloud item was verified.</p>
+    </aside>
+    <footer><span>Made for personal archiving</span><span>Not affiliated with SoundCloud</span></footer>
   </main>
-  <script>
-    const form = document.getElementById('export-form');
-    const input = document.getElementById('profile-url');
-    const start = document.getElementById('start');
-    const retry = document.getElementById('retry');
-    const statusText = document.getElementById('status-text');
-    const pill = document.getElementById('status-pill');
-    const bar = document.getElementById('progress-bar');
-    const errorBox = document.getElementById('error-box');
-    let timer;
-
-    async function launch(force) {
-      errorBox.classList.add('hidden');
-      try {
-        const response = await fetch('/api/export', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url:input.value, retry:force})});
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Could not start export');
-        start.disabled = true;
-        pill.textContent = 'WORKING';
-        pill.className = 'pill working';
-        bar.classList.add('active');
-        clearInterval(timer);
-        timer = setInterval(refresh, 1200);
-        await refresh();
-      } catch (error) {
-        errorBox.textContent = error.message;
-        errorBox.classList.remove('hidden');
-      }
-    }
-    form.addEventListener('submit', event => {event.preventDefault(); launch(false);});
-    retry.addEventListener('click', () => launch(true));
-
-    async function refresh() {
-      try {
-        const response = await fetch('/api/status');
-        const job = await response.json();
-        statusText.textContent = job.status || 'Ready';
-        if (job.running) {
-          const counts = job.counts || {};
-          const total = Object.values(counts).reduce((a,b)=>a+b,0);
-          bar.style.width = Math.min(92, 12 + Math.log10(total + 1) * 22) + '%';
-        } else if (job.status !== 'idle') {
-          clearInterval(timer);
-          start.disabled = false;
-          pill.textContent = job.error ? 'ERROR' : 'DONE';
-          pill.className = job.error ? 'pill failed' : 'pill complete';
-          bar.classList.remove('active');
-          bar.style.width = job.error ? '100%' : '100%';
-          bar.style.background = job.error ? '#ff6878' : 'var(--orange)';
-          showReport(job.report);
-          if (job.error) { errorBox.textContent = job.error; errorBox.classList.remove('hidden'); }
-        }
-      } catch (_) { statusText.textContent = 'Waiting for local exporter…'; }
-    }
-    function showReport(report) {
-      if (!report || !report.categories) return;
-      for (const [category, elementId] of [['likes','likes-state'],['playlists','playlists-state']]) {
-        const item = report.categories[category] || {};
-        document.getElementById(elementId).textContent = `${item.status || 'unknown'}${item.count !== undefined ? ' · ' + item.count.toLocaleString() + ' items' : ''}`;
-        if (item.status === 'complete' || item.status === 'incomplete') {
-          const link = document.getElementById(category + '-link');
-          link.classList.remove('disabled');
-        }
-      }
-    }
-    refresh();
-  </script>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </body>
 </html>
