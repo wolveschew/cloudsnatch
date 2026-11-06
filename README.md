@@ -14,13 +14,11 @@ Save metadata from **public SoundCloud likes and playlists** as CSV and JSON fil
 &nbsp;
 <a href="https://github.com/wolveschew/cloudsnatch/releases/latest"><img alt="Download CloudSnatch for macOS" src="https://img.shields.io/badge/Download-macOS-555555?style=for-the-badge&logo=apple&logoColor=white"></a>
 &nbsp;
-<img alt="Android APK in testing; not yet released" src="https://img.shields.io/badge/Android-APK%20in%20testing-777777?style=for-the-badge&logo=android&logoColor=white">
+<a href="https://github.com/wolveschew/cloudsnatch/releases/latest/download/CloudSnatch.apk"><img alt="Download CloudSnatch for Android" src="https://img.shields.io/badge/Download-Android%20APK-3DDC84?style=for-the-badge&logo=android&logoColor=white"></a>
 
 [Browse all releases](https://github.com/wolveschew/cloudsnatch/releases)
 
 </div>
-
-> **Android release status:** the Android app is being tested. Its APK will be published after a protected release-signing key is configured; the test build is not presented as a production download. The current v1.1.0 desktop assets still use the former SoundSnatch filenames.
 
 ### Windows
 
@@ -36,7 +34,9 @@ Save metadata from **public SoundCloud likes and playlists** as CSV and JSON fil
 
 ### Android
 
-The Android app supports Android 10 and newer. A signed release APK is not available until the repository's protected signing key is configured. Do not install a debug APK as a release.
+1. Download [CloudSnatch for Android](https://github.com/wolveschew/cloudsnatch/releases/latest/download/CloudSnatch.apk).
+2. Open the downloaded APK and follow Android's install prompts. Android 10 or newer is required.
+3. If Android asks, allow installation from the app you used to download the APK.
 
 ## Export your public collections
 
@@ -78,22 +78,7 @@ gradle -p android :app:connectedDebugAndroidTest
 
 The GitHub Actions workflow runs the desktop tests and builds, Android unit tests, and an Android emulator UI test. A version-tagged release publishes Windows and macOS installers and a **release-signed** Android APK after all platform jobs pass.
 
-### Configure Android release signing
-
-Android updates must keep the same signing certificate. CloudSnatch uses a PKCS#12 release keystore (`.p12`). Keep a secure backup of the keystore and its passwords; never commit them. Configure these four repository Actions secrets before creating a release tag:
-
-- `CLOUDSNATCH_ANDROID_KEYSTORE_BASE64` — Base64-encoded `.p12` keystore file.
-- `CLOUDSNATCH_ANDROID_KEYSTORE_PASSWORD` — keystore password.
-- `CLOUDSNATCH_ANDROID_KEY_ALIAS` — key alias.
-- `CLOUDSNATCH_ANDROID_KEY_PASSWORD` — key password.
-
-For example, on Windows, encode your private `.p12` file with:
-
-```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("cloudsnatch-release.p12"))
-```
-
-Store that output directly as the GitHub Actions secret; do not paste it into a commit or issue. The release workflow stops if any signing secret is missing, and verifies the APK signature before attaching it.
+Android release signing is managed by the repository's release workflow. The workflow verifies the APK before publishing it.
 
 ### Privacy and security
 

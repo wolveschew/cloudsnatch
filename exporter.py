@@ -7,6 +7,7 @@ import io
 import json
 import os
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -90,6 +91,33 @@ def csv_line(entry: dict[str, Any]) -> str:
 
 def csv_preview(entry: dict[str, Any]) -> str:
     return ",".join(CSV_FIELDS) + "\n" + csv_line(entry)
+
+
+def is_transient_network_error(error: Exception) -> bool:
+    messages = []
+    current: BaseException | None = error
+    while current is not None:
+        messages.append(str(current).lower())
+        current = current.__cause__ or current.__context__
+    message = " ".join(messages)
+    return any(
+        marker in message
+        for marker in (
+            "timed out",
+            "timeout",
+            "temporarily unavailable",
+            "temporary failure",
+            "connection reset",
+            "connection aborted",
+            "remote end closed",
+            "http error 408",
+            "http error 429",
+            "http error 500",
+            "http error 502",
+            "http error 503",
+            "http error 504",
+        )
+    )
 
 
 def write_csv(path: Path, entries: list[dict[str, Any]]) -> None:
@@ -183,7 +211,7 @@ def export_category(
         "playlistend": None,
         "retries": 5,
         "extractor_retries": 3,
-        "socket_timeout": 30,
+        "socket_timeout": 60,
         "noplaylist": False,
     }
 
@@ -210,44 +238,54 @@ def export_category(
 
     title = None
     collection_id = None
-    try:
-        with csv_path.open("w", encoding="utf-8-sig", newline="") as csv_stream:
-            csv_writer = csv.DictWriter(csv_stream, fieldnames=CSV_FIELDS)
-            csv_writer.writeheader()
-            csv_writer.writerows(csv_values(entry) for entry in entries)
-            csv_stream.flush()
+    max_collection_attempts = 3
+    for attempt in range(1, max_collection_attempts + 1):
+        try:
+            with csv_path.open("w", encoding="utf-8-sig", newline="") as csv_stream:
+                csv_writer = csv.DictWriter(csv_stream, fieldnames=CSV_FIELDS)
+                csv_writer.writeheader()
+                csv_writer.writerows(csv_values(entry) for entry in entries)
+                csv_stream.flush()
 
-            with YoutubeDL(ydl_options) as ydl:
-                info = ydl.extract_info(source_url, download=False)
-                if not isinstance(info, dict) or info.get("entries") is None:
-                    raise RuntimeError("SoundCloud returned no public collection. It may be private, blocked, or unavailable.")
-                title = info.get("title")
-                collection_id = info.get("id")
-                iterator = iter(info["entries"])
-                new_since_checkpoint = 0
-                for entry in iterator:
-                    if not isinstance(entry, dict):
-                        continue
-                    key = stable_id(entry)
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    entries.append(entry)
-                    csv_writer.writerow(csv_values(entry))
-                    csv_stream.flush()
-                    new_since_checkpoint += 1
-                    if new_since_checkpoint >= 25:
-                        checkpoint(False, title, collection_id)
-                        new_since_checkpoint = 0
-                        progress(category, len(entries), "checkpoint saved", entry)
-                    else:
-                        progress(category, len(entries), "pending next checkpoint", entry)
-                checkpoint(True, title, collection_id)
-                if entries:
-                    progress(category, len(entries), "checkpoint saved", entries[-1])
-    except Exception:
-        checkpoint(False, title, collection_id)
-        raise
+                with YoutubeDL(ydl_options) as ydl:
+                    info = ydl.extract_info(source_url, download=False)
+                    if not isinstance(info, dict) or info.get("entries") is None:
+                        raise RuntimeError("SoundCloud returned no public collection. It may be private, blocked, or unavailable.")
+                    title = info.get("title")
+                    collection_id = info.get("id")
+                    iterator = iter(info["entries"])
+                    new_since_checkpoint = 0
+                    for entry in iterator:
+                        if not isinstance(entry, dict):
+                            continue
+                        key = stable_id(entry)
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        entries.append(entry)
+                        csv_writer.writerow(csv_values(entry))
+                        csv_stream.flush()
+                        new_since_checkpoint += 1
+                        if new_since_checkpoint >= 25:
+                            checkpoint(False, title, collection_id)
+                            new_since_checkpoint = 0
+                            progress(category, len(entries), "checkpoint saved", entry)
+                        else:
+                            progress(category, len(entries), "pending next checkpoint", entry)
+                    checkpoint(True, title, collection_id)
+                    if entries:
+                        progress(category, len(entries), "checkpoint saved", entries[-1])
+            break
+        except Exception as error:
+            checkpoint(False, title, collection_id)
+            if attempt == max_collection_attempts or not is_transient_network_error(error):
+                raise
+            progress(
+                category,
+                len(entries),
+                f"temporary network error; retrying ({attempt + 1}/{max_collection_attempts})",
+            )
+            time.sleep(attempt)
     return load_json(data_path, {})
 
 

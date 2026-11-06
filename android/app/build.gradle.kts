@@ -27,8 +27,8 @@ android {
         applicationId = "app.cloudsnatch"
         minSdk = 29
         targetSdk = 35
-        versionCode = 10200
-        versionName = "1.2.0"
+        versionCode = 10201
+        versionName = "1.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {

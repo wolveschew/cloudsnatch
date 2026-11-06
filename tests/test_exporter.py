@@ -137,6 +137,81 @@ class ExporterTests(unittest.TestCase):
             self.assertFalse(saved["complete"])
             self.assertEqual([entry["id"] for entry in saved["entries"]], ["saved"])
 
+    def test_temporary_metadata_timeout_retries_and_completes(self):
+        class RecoveringYoutubeDL(FakeYoutubeDL):
+            attempts = 0
+
+            def extract_info(self, url, download):
+                type(self).attempts += 1
+                if type(self).attempts == 1:
+                    raise RuntimeError(
+                        "Unable to download JSON metadata: The read operation timed out"
+                    )
+                return {"id": "collection", "entries": [{"id": "track"}]}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            progress = []
+            with patch("exporter.YoutubeDL", RecoveringYoutubeDL), patch("exporter.time.sleep"):
+                result = export_category(
+                    "https://soundcloud.com/artist",
+                    "likes",
+                    Path(temporary),
+                    lambda *args: progress.append(args),
+                )
+
+            self.assertTrue(result["complete"])
+            self.assertEqual(result["count"], 1)
+            self.assertEqual(RecoveringYoutubeDL.attempts, 2)
+            self.assertTrue(any("retrying" in event[2] for event in progress))
+
+    def test_nontransient_collection_error_is_not_retried(self):
+        class InvalidCollectionYoutubeDL(FakeYoutubeDL):
+            attempts = 0
+
+            def extract_info(self, url, download):
+                type(self).attempts += 1
+                raise RuntimeError("SoundCloud returned no public collection")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch("exporter.YoutubeDL", InvalidCollectionYoutubeDL), patch("exporter.time.sleep"):
+                with self.assertRaisesRegex(RuntimeError, "no public collection"):
+                    export_category(
+                        "https://soundcloud.com/artist",
+                        "likes",
+                        Path(temporary),
+                        lambda *args: None,
+                    )
+
+            self.assertEqual(InvalidCollectionYoutubeDL.attempts, 1)
+
+    def test_timeout_after_partial_page_retries_without_duplicate_rows(self):
+        class InterruptedYoutubeDL(FakeYoutubeDL):
+            attempts = 0
+
+            def extract_info(self, url, download):
+                type(self).attempts += 1
+                if type(self).attempts == 1:
+                    def entries():
+                        yield {"id": "saved"}
+                        raise TimeoutError("The read operation timed out")
+                    return {"entries": entries()}
+                return {"entries": [{"id": "saved"}, {"id": "new"}]}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            output_dir = Path(temporary)
+            with patch("exporter.YoutubeDL", InterruptedYoutubeDL), patch("exporter.time.sleep"):
+                result = export_category(
+                    "https://soundcloud.com/artist",
+                    "likes",
+                    output_dir,
+                    lambda *args: None,
+                )
+
+            self.assertTrue(result["complete"])
+            self.assertEqual([entry["id"] for entry in result["entries"]], ["saved", "new"])
+            with (output_dir / "likes.csv").open(encoding="utf-8-sig", newline="") as stream:
+                self.assertEqual([row["id"] for row in csv.DictReader(stream)], ["saved", "new"])
+
     def test_rejects_unsupported_category(self):
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaisesRegex(ValueError, "Unsupported category"):

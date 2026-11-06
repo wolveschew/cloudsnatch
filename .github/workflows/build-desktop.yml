@@ -67,7 +67,7 @@ jobs:
           $version = if ("${{ github.ref_type }}" -eq "tag") {
             "${{ github.ref_name }}".TrimStart("v")
           } else {
-            "1.2.0"
+            "1.2.1"
           }
           & $compiler "/DAppVersion=$version" "installer\CloudSnatch.iss"
           if ($LASTEXITCODE -ne 0) {
@@ -152,7 +152,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.CLOUDSNATCH_ANDROID_KEY_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
-            echo "::error::Configure the four protected Android signing secrets listed in README.md before creating a release tag."
+            echo "::error::Configure the required protected Android release secrets before creating a release tag."
             exit 1
           fi
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/cloudsnatch-release.p12"
