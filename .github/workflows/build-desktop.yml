@@ -1,4 +1,4 @@
-name: Build SoundSnatch installers
+name: Build CloudSnatch apps
 
 on:
   push:
@@ -18,9 +18,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact: soundsnatch-windows
+            artifact: cloudsnatch-windows
           - os: macos-latest
-            artifact: soundsnatch-macos
+            artifact: cloudsnatch-macos
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
         if: runner.os == 'Windows'
         run: >-
           pyinstaller --noconfirm --clean --windowed --onedir
-          --name SoundSnatch
+          --name CloudSnatch
           --add-data "templates;templates"
           --add-data "static;static"
           --collect-data webview
@@ -44,7 +44,7 @@ jobs:
           desktop_app.py
       - name: Smoke test packaged Windows app
         if: runner.os == 'Windows'
-        run: .\dist\SoundSnatch\SoundSnatch.exe --smoke-test
+        run: .\dist\CloudSnatch\CloudSnatch.exe --smoke-test
       - name: Download WebView2 runtime bootstrapper
         if: runner.os == 'Windows'
         shell: pwsh
@@ -67,9 +67,9 @@ jobs:
           $version = if ("${{ github.ref_type }}" -eq "tag") {
             "${{ github.ref_name }}".TrimStart("v")
           } else {
-            "1.1.0"
+            "1.2.0"
           }
-          & $compiler "/DAppVersion=$version" "installer\SoundSnatch.iss"
+          & $compiler "/DAppVersion=$version" "installer\CloudSnatch.iss"
           if ($LASTEXITCODE -ne 0) {
             throw "Inno Setup exited with code $LASTEXITCODE"
           }
@@ -77,31 +77,106 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           pyinstaller --noconfirm --clean --windowed \
-            --name SoundSnatch \
+            --name CloudSnatch \
             --add-data "templates:templates" \
             --add-data "static:static" \
             --collect-data webview \
             --collect-all yt_dlp \
             --hidden-import webview.platforms.cocoa \
-            --osx-bundle-identifier com.wolveschew.soundsnatch \
+            --osx-bundle-identifier app.cloudsnatch \
             desktop_app.py
           # Smoke-test the actual packaged app, including its bundled UI resources.
-          dist/SoundSnatch.app/Contents/MacOS/SoundSnatch --smoke-test
+          dist/CloudSnatch.app/Contents/MacOS/CloudSnatch --smoke-test
           hdiutil create \
-            -volname "SoundSnatch" \
-            -srcfolder "dist/SoundSnatch.app" \
+            -volname "CloudSnatch" \
+            -srcfolder "dist/CloudSnatch.app" \
             -ov -format UDZO \
-            "dist/SoundSnatch.dmg"
+            "dist/CloudSnatch.dmg"
       - name: Upload app artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ runner.os == 'Windows' && 'dist/SoundSnatchSetup.exe' || 'dist/SoundSnatch.dmg' }}
+          path: ${{ runner.os == 'Windows' && 'dist/CloudSnatchSetup.exe' || 'dist/CloudSnatch.dmg' }}
+          if-no-files-found: error
+
+  android-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Enable Android emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run Android unit tests and build debug APK
+        run: |
+          gradle -p android :app:testDebugUnitTest :app:assembleDebug
+      - name: Run Android UI test on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          script: gradle -p android :app:connectedDebugAndroidTest
+
+  android-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Require protected Android release signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.CLOUDSNATCH_ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.CLOUDSNATCH_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.CLOUDSNATCH_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.CLOUDSNATCH_ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Configure the four protected Android signing secrets listed in README.md before creating a release tag."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/cloudsnatch-release.jks"
+      - name: Build signed Android APK
+        env:
+          CLOUDSNATCH_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/cloudsnatch-release.jks
+          CLOUDSNATCH_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.CLOUDSNATCH_ANDROID_KEYSTORE_PASSWORD }}
+          CLOUDSNATCH_ANDROID_KEY_ALIAS: ${{ secrets.CLOUDSNATCH_ANDROID_KEY_ALIAS }}
+          CLOUDSNATCH_ANDROID_KEY_PASSWORD: ${{ secrets.CLOUDSNATCH_ANDROID_KEY_PASSWORD }}
+        run: gradle -p android :app:assembleRelease
+      - name: Verify APK signature
+        run: |
+          apksigner verify --verbose android/app/build/outputs/apk/release/app-release.apk
+          cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/CloudSnatch.apk
+      - name: Upload signed Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudsnatch-android
+          path: android/app/build/outputs/apk/release/CloudSnatch.apk
           if-no-files-found: error
 
   publish-release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [build, android-test, android-release]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -109,7 +184,7 @@ jobs:
       - name: Download platform installers
         uses: actions/download-artifact@v4
         with:
-          pattern: soundsnatch-*
+          pattern: cloudsnatch-*
           path: release-assets
           merge-multiple: true
       - name: Publish GitHub release

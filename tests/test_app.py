@@ -33,11 +33,11 @@ class AppTests(unittest.TestCase):
     def test_homepage_loads_local_export_ui_and_settings(self):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"SoundSnatch", response.data)
-        self.assertIn(b"Latest collection item", response.data)
+        self.assertIn(b"CloudSnatch", response.data)
+        self.assertIn(b"Latest export item", response.data)
         self.assertIn(b"Open folder", response.data)
         self.assertIn(b"Following lists", response.data)
-        self.assertIn(b"Appearance settings", response.data)
+        self.assertIn(b"Appearance", response.data)
         self.assertIn(b"Public metadata only", response.data)
 
     def test_export_rejects_invalid_profile_url(self):

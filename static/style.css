@@ -42,8 +42,6 @@ button, a, select, summary { -webkit-tap-highlight-color: transparent; }
 .local-badge i { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 9px rgba(112, 215, 167, .6); }
 
 .hero { max-width: 730px; padding: 54px 0 35px; }
-.eyebrow { margin: 0 0 12px; color: var(--orange-soft); font-size: 9px; font-weight: 800; letter-spacing: 1.8px; }
-.eyebrow-line { display: inline-block; width: 19px; height: 2px; margin: 0 7px 3px 0; background: var(--orange); }
 h1 { margin: 0; font-size: clamp(42px, 7vw, 68px); font-weight: 800; line-height: 1.02; letter-spacing: -3.8px; }
 h1 em { color: var(--orange); font-style: normal; }
 .intro { max-width: 570px; margin: 17px 0 27px; color: #bcb8b5; font-size: 14px; line-height: 1.75; }
@@ -71,7 +69,6 @@ h1 em { color: var(--orange); font-style: normal; }
 
 .results { border: 1px solid var(--line); border-radius: 12px; background: linear-gradient(145deg, rgba(28, 28, 30, .98), rgba(22, 22, 24, .98)); padding: 22px; box-shadow: 0 18px 50px rgba(0, 0, 0, .13); }
 .section-head { display: flex; align-items: center; justify-content: space-between; }
-.section-head .eyebrow { margin-bottom: 5px; }
 h2 { margin: 0; font-size: 20px; font-weight: 730; letter-spacing: -.5px; }
 .pill, .tag { border: 1px solid #3a3a3e; border-radius: 30px; background: #262629; padding: 6px 9px; color: #c1bdba; font-size: 8px; font-weight: 800; letter-spacing: 1px; white-space: nowrap; }
 .pill.working { border-color: #77452f; background: #302017; color: #ffd1bb; }

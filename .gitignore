@@ -8,9 +8,19 @@
 /build
 __pycache__/
 *.py[cod]
+/android/.gradle/
+/android/**/build/
+/android/local.properties
+*.apk
+*.aab
 
 # PyInstaller metadata
+/CloudSnatch.spec
 /SoundSnatch.spec
+
+# Android signing material
+*.jks
+*.keystore
 
 # Logs
 *.log
