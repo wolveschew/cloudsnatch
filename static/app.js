@@ -8,8 +8,17 @@ const bar = document.getElementById("progress-bar");
 const errorBox = document.getElementById("error-box");
 const accentSetting = document.getElementById("accent-setting");
 const compactSetting = document.getElementById("compact-setting");
+const folderButtons = [
+  document.getElementById("likes-folder"),
+  document.getElementById("playlists-folder"),
+];
+const writePreview = document.querySelector(".write-preview");
+const previewStatus = document.getElementById("preview-status");
+const jsonPreview = document.getElementById("json-preview");
+const csvPreview = document.getElementById("csv-preview");
 let timer;
 let initialized = false;
+let hasSeenLatestItem = false;
 let appearanceSaveQueue = Promise.resolve();
 
 function showError(message) {
@@ -27,10 +36,6 @@ function setCategory(category, item = {}) {
   state.title = detail || state.textContent;
   state.classList.toggle("error-state", status === "failed");
   if (category !== "likes" && category !== "playlists") return;
-  const link = document.getElementById(`${category}-link`);
-  const available = status === "complete" || status === "incomplete" || (status === "failed" && item.file);
-  link.classList.toggle("disabled", !available);
-  link.setAttribute("aria-disabled", String(!available));
 }
 
 function showReport(report) {
@@ -54,6 +59,20 @@ function showProgress(categories) {
   }
 }
 
+function showLatestItem(item) {
+  if (!item) return;
+  if (!hasSeenLatestItem) {
+    writePreview.open = true;
+    hasSeenLatestItem = true;
+  }
+  previewStatus.textContent =
+    `${item.category} · item ${Number(item.count || 0).toLocaleString()} · ` +
+    `${item.checkpoint ? "CSV and JSON checkpoint saved" : "CSV saved; JSON checkpoint pending"} · ${item.title}`;
+  jsonPreview.textContent = (item.json || "No JSON preview available.") +
+    (item.json_truncated ? "\n… preview shortened; open the account folder to inspect the full file." : "");
+  csvPreview.textContent = item.csv || "No CSV row available.";
+}
+
 async function refresh() {
   try {
     const response = await fetch("/api/status");
@@ -62,6 +81,8 @@ async function refresh() {
     statusText.textContent = job.status || "Ready";
     showProgress(job.categories);
     if (job.report) showReport(job.report);
+    showLatestItem(job.latest_item);
+    folderButtons.forEach(button => { button.disabled = !job.profile_url && !input.value.trim(); });
     if (job.error) showError(job.error);
 
     if (job.running) {
@@ -96,6 +117,10 @@ async function refresh() {
 
 async function launch(force) {
   errorBox.classList.add("hidden");
+  hasSeenLatestItem = false;
+  jsonPreview.textContent = "Waiting for an item…";
+  csvPreview.textContent = "Waiting for an item…";
+  previewStatus.textContent = "Preparing the collection export.";
   try {
     const response = await fetch("/api/export", {
       method: "POST",
@@ -112,6 +137,21 @@ async function launch(force) {
     clearInterval(timer);
     timer = setInterval(refresh, 2000);
     await refresh();
+  } catch (error) {
+    showError(error instanceof Error ? error.message : String(error));
+  }
+}
+
+async function openAccountFolder() {
+  errorBox.classList.add("hidden");
+  try {
+    const response = await fetch("/api/open-folder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: input.value }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `Could not open folder (${response.status}).`);
   } catch (error) {
     showError(error instanceof Error ? error.message : String(error));
   }
@@ -167,6 +207,10 @@ form.addEventListener("submit", event => {
   launch(false);
 });
 retry.addEventListener("click", () => launch(true));
+folderButtons.forEach(button => button.addEventListener("click", openAccountFolder));
+input.addEventListener("input", () => {
+  folderButtons.forEach(button => { button.disabled = !input.value.trim(); });
+});
 
 loadAppearance();
 refresh();

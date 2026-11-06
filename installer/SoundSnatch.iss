@@ -1,17 +1,17 @@
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.1.0"
 #endif
 
 [Setup]
 AppId={{4F09DD22-2DC7-4DFB-8A96-ED1F0C27C486}
-AppName=SoundArchive Desktop App
+AppName=SoundSnatch
 AppVersion={#AppVersion}
 AppPublisher=wolveschew
-DefaultDirName={localappdata}\Programs\SoundArchive Desktop App
-DefaultGroupName=SoundArchive Desktop App
-UninstallDisplayIcon={app}\SoundArchiveDesktopApp.exe
+DefaultDirName={localappdata}\Programs\SoundSnatch
+DefaultGroupName=SoundSnatch
+UninstallDisplayIcon={app}\SoundSnatch.exe
 OutputDir=..\dist
-OutputBaseFilename=SoundCloudArchiveSetup
+OutputBaseFilename=SoundSnatchSetup
 SetupIconFile=
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64
@@ -41,14 +41,14 @@ begin
       Exit;
     end;
 
-    TestPath := AddBackslash(WizardDirValue) + '.soundcloud-archive-write-test';
+    TestPath := AddBackslash(WizardDirValue) + '.soundsnatch-write-test';
     while FileExists(TestPath) do
       TestPath := TestPath + '-';
     if not SaveStringToFile(TestPath, 'SoundArchive write test', False) then
     begin
       MsgBox(
         'You do not have permission to install to the selected folder. Choose a folder you can modify, such as ' +
-        ExpandConstant('{localappdata}\Programs\SoundArchive Desktop App') + '.',
+        ExpandConstant('{localappdata}\Programs\SoundSnatch') + '.',
         mbError, MB_OK);
       Result := False;
       Exit;
@@ -61,13 +61,13 @@ end;
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
 
 [Files]
-Source: "..\dist\SoundArchiveDesktopApp\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\SoundSnatch\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\dist\MicrosoftEdgeWebView2Setup.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\SoundArchive Desktop App"; Filename: "{app}\SoundArchiveDesktopApp.exe"
-Name: "{autodesktop}\SoundArchive Desktop App"; Filename: "{app}\SoundArchiveDesktopApp.exe"; Tasks: desktopicon
+Name: "{group}\SoundSnatch"; Filename: "{app}\SoundSnatch.exe"
+Name: "{autodesktop}\SoundSnatch"; Filename: "{app}\SoundSnatch.exe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\MicrosoftEdgeWebView2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "Installing Microsoft Edge WebView2 Runtime..."; Flags: waituntilterminated
-Filename: "{app}\SoundArchiveDesktopApp.exe"; Description: "Launch SoundArchive Desktop App"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\SoundSnatch.exe"; Description: "Launch SoundSnatch"; Flags: postinstall nowait skipifsilent
