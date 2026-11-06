@@ -7,7 +7,7 @@ import os
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 from yt_dlp import YoutubeDL
@@ -45,8 +45,8 @@ def normalize_profile_url(value: str) -> str:
     }:
         raise ValueError("Please enter a SoundCloud profile URL.")
     parts = [part for part in parsed.path.split("/") if part]
-    if not parts:
-        raise ValueError("Please enter a profile URL, not the SoundCloud homepage.")
+    if len(parts) != 1 or parsed.query or parsed.fragment:
+        raise ValueError("Please enter a profile URL only, such as https://soundcloud.com/artist.")
     return f"https://soundcloud.com/{parts[0]}"
 
 
@@ -54,8 +54,13 @@ def stable_id(entry: dict[str, Any]) -> str:
     return str(entry.get("id") or entry.get("url") or entry.get("webpage_url") or json.dumps(entry, sort_keys=True))
 
 
-def export_category(profile_url: str, category: str, output_dir: Path,
-                    progress: callable, force: bool = False) -> dict[str, Any]:
+def export_category(
+    profile_url: str,
+    category: str,
+    output_dir: Path,
+    progress: Callable[[str, int, str], None],
+    force: bool = False,
+) -> dict[str, Any]:
     """Exhaust yt-dlp's paginated collection iterator; checkpoint every 25 items.
 
     On resume, refetch the public collection from its beginning and de-duplicate by
@@ -67,21 +72,29 @@ def export_category(profile_url: str, category: str, output_dir: Path,
     output_dir.mkdir(parents=True, exist_ok=True)
     data_path = output_dir / f"{category}.json"
     state_path = output_dir / "state.json"
-    state = load_json(state_path, {"profile_url": profile_url, "categories": {}})
+    loaded_state = load_json(state_path, {})
+    state = loaded_state if isinstance(loaded_state, dict) else {}
     if state.get("profile_url") != profile_url:
         state = {"profile_url": profile_url, "categories": {}}
+    if not isinstance(state.get("categories"), dict):
+        state["categories"] = {}
 
     if data_path.exists() and not force:
         cached = load_json(data_path, {})
-        if cached.get("profile_url") == profile_url and cached.get("complete"):
+        if isinstance(cached, dict) and cached.get("profile_url") == profile_url and cached.get("complete"):
             progress(category, cached.get("count", 0), "already complete")
             return cached
 
-    partial = load_json(data_path, {})
+    partial = load_json(data_path, {}) if not force else {}
+    if not isinstance(partial, dict):
+        partial = {}
     entries: list[dict[str, Any]] = []
     seen: set[str] = set()
     if partial.get("profile_url") == profile_url:
-        for entry in partial.get("entries", []):
+        partial_entries = partial.get("entries", [])
+        if not isinstance(partial_entries, list):
+            partial_entries = []
+        for entry in partial_entries:
             if isinstance(entry, dict):
                 key = stable_id(entry)
                 if key not in seen:
@@ -93,6 +106,11 @@ def export_category(profile_url: str, category: str, output_dir: Path,
         "status": "running", "count": len(entries), "updated_at": utc_now()
     }
     atomic_json(state_path, state)
+    progress(
+        category,
+        len(entries),
+        "resuming saved checkpoint" if entries else "connecting to public collection",
+    )
 
     ydl_options = {
         "quiet": True,
@@ -136,11 +154,7 @@ def export_category(profile_url: str, category: str, output_dir: Path,
                 raise RuntimeError("SoundCloud returned no public collection. It may be private, blocked, or unavailable.")
             title = info.get("title")
             collection_id = info.get("id")
-            iterator = info["entries"]
-            if isinstance(iterator, list):
-                pass
-            else:
-                iterator = iter(iterator)
+            iterator = iter(info["entries"])
             new_since_checkpoint = 0
             for entry in iterator:
                 if not isinstance(entry, dict):
@@ -170,13 +184,20 @@ def load_json(path: Path, fallback: Any) -> Any:
         return fallback
 
 
-def export_profile(profile: str, output_dir: Path, progress: callable,
-                   force: bool = False) -> dict[str, Any]:
+def export_profile(
+    profile: str,
+    output_dir: Path,
+    progress: Callable[[str, int, str], None],
+    force: bool = False,
+) -> dict[str, Any]:
     profile_url = normalize_profile_url(profile)
     report_path = output_dir / "report.json"
-    report = load_json(report_path, {"profile_url": profile_url, "categories": {}})
+    loaded_report = load_json(report_path, {})
+    report = loaded_report if isinstance(loaded_report, dict) else {}
     if report.get("profile_url") != profile_url:
         report = {"profile_url": profile_url, "categories": {}}
+    if not isinstance(report.get("categories"), dict):
+        report["categories"] = {}
 
     errors: list[dict[str, str]] = []
     for category in CATEGORIES:
@@ -188,7 +209,19 @@ def export_profile(profile: str, output_dir: Path, progress: callable,
             }
         except Exception as exc:
             errors.append({"category": category, "error": f"{type(exc).__name__}: {exc}"})
-            report["categories"][category] = {"status": "failed", "error": errors[-1]["error"]}
+            checkpoint = load_json(output_dir / f"{category}.json", {})
+            saved_checkpoint = (
+                checkpoint
+                if isinstance(checkpoint, dict) and checkpoint.get("profile_url") == profile_url
+                else {}
+            )
+            failed_category = {"status": "failed", "error": errors[-1]["error"]}
+            if saved_checkpoint:
+                failed_category.update({
+                    "count": saved_checkpoint.get("count", 0),
+                    "file": f"{category}.json",
+                })
+            report["categories"][category] = failed_category
         atomic_json(report_path, report)
 
     report["categories"]["followings"] = {

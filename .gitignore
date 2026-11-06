@@ -5,11 +5,17 @@
 
 # Build output
 /dist
+/build
+__pycache__/
+*.py[cod]
 
 # Local export data
 /exports
+/soundcloud-export
 /state.json
 /failed.json
+/SoundCloudArchive.spec
+/SoundCloudArchive/
 
 # Logs
 *.log
