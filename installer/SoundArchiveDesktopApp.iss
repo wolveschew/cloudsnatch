@@ -42,7 +42,7 @@ begin
       Exit;
     end;
 
-    TestPath := AddBackslash(WizardDirValue) + '.soundcloud-archive-write-test-' + IntToStr(GetTickCount);
+    TestPath := AddBackslash(WizardDirValue) + '.soundcloud-archive-write-test';
     while FileExists(TestPath) do
       TestPath := TestPath + '-';
     TestHandle := FileCreate(TestPath);
