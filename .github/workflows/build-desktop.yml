@@ -34,14 +34,17 @@ jobs:
       - name: Build Windows executable
         if: runner.os == 'Windows'
         run: >-
-          pyinstaller --noconfirm --clean --windowed --onefile
-          --name SoundCloudArchive
+          pyinstaller --noconfirm --clean --windowed --onedir
+          --name SoundArchiveDesktopApp
           --add-data "templates;templates"
           --add-data "static;static"
-          --collect-all webview
+          --collect-data webview
           --collect-all yt_dlp
           --hidden-import webview.platforms.edgechromium
           desktop_app.py
+      - name: Smoke test packaged Windows app
+        if: runner.os == 'Windows'
+        run: .\dist\SoundArchiveDesktopApp\SoundArchiveDesktopApp.exe --smoke-test
       - name: Download WebView2 runtime bootstrapper
         if: runner.os == 'Windows'
         shell: pwsh
@@ -66,7 +69,7 @@ jobs:
           } else {
             "1.0.0"
           }
-          & $compiler "/DAppVersion=$version" "installer\SoundCloudArchive.iss"
+          & $compiler "/DAppVersion=$version" "installer\SoundArchiveDesktopApp.iss"
           if ($LASTEXITCODE -ne 0) {
             throw "Inno Setup exited with code $LASTEXITCODE"
           }
@@ -74,17 +77,19 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           pyinstaller --noconfirm --clean --windowed \
-            --name SoundCloudArchive \
+            --name SoundArchiveDesktopApp \
             --add-data "templates:templates" \
             --add-data "static:static" \
-            --collect-all webview \
+            --collect-data webview \
             --collect-all yt_dlp \
             --hidden-import webview.platforms.cocoa \
             --osx-bundle-identifier com.wolveschew.soundcloudarchive \
             desktop_app.py
+          # Smoke-test the actual packaged app, including its bundled UI resources.
+          dist/SoundArchiveDesktopApp.app/Contents/MacOS/SoundArchiveDesktopApp --smoke-test
           hdiutil create \
-            -volname "SoundCloud Archive" \
-            -srcfolder "dist/SoundCloudArchive.app" \
+            -volname "SoundArchive Desktop App" \
+            -srcfolder "dist/SoundArchiveDesktopApp.app" \
             -ov -format UDZO \
             "dist/SoundCloudArchive.dmg"
       - name: Upload app artifact

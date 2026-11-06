@@ -1,59 +1,85 @@
-# SoundCloud Archive
+<div align="center">
 
-A simple local desktop app for saving **publicly accessible** SoundCloud likes and playlists as JSON. The app does not ask for an account login, password, cookies, or token. It only uses yt-dlp's maintained public SoundCloud extractor; it does not call undocumented endpoints.
+# 🎧 SoundArchive Desktop App
 
-## Install the Windows release
+Want to keep a copy of your public SoundCloud likes and playlists? SoundArchive Desktop App helps you save them as files on your computer—no account login needed.
 
-Download `SoundCloudArchiveSetup.exe` from the repository's **Releases** page, run it, and follow the installer prompts. The installer is per-user and does not require administrator permission. It installs Microsoft's WebView2 Runtime if needed, adds a Start menu shortcut, and can optionally add a desktop shortcut. The packaged app is unsigned, so Windows SmartScreen may show a security warning; verify that the release is from this repository before choosing **Run anyway**.
+[![Latest release](https://img.shields.io/github/v/release/wolveschew/soundarchive-desktop-app?style=for-the-badge&color=ff5500)](https://github.com/wolveschew/soundarchive-desktop-app/releases/latest)
+[![Build status](https://img.shields.io/github/actions/workflow/status/wolveschew/soundarchive-desktop-app/build-desktop.yml?branch=main&style=for-the-badge&label=Windows%20%26%20macOS%20builds)](https://github.com/wolveschew/soundarchive-desktop-app/actions/workflows/build-desktop.yml)
 
-Releases are created automatically when a `v*` version tag is pushed, after the Windows and macOS builds and tests succeed. The Windows release asset is an `.exe` installer; the macOS release asset is an unsigned `.dmg`. On macOS, Gatekeeper may require Control-clicking the app and choosing **Open** the first time.
+## 🚀 Install first
 
-Pull requests and normal pushes build downloadable CI artifacts but do not publish a release. To try those builds before a tagged release, download the Windows installer or macOS disk image from a successful **Build desktop apps** workflow run.
+Choose the button for your computer to download the installer:
 
-## Run from source
+<a href="https://github.com/wolveschew/soundarchive-desktop-app/releases/latest/download/SoundCloudArchiveSetup.exe"><img alt="Download Windows installer" src="https://img.shields.io/badge/Download-Windows%20installer-0078D4?style=for-the-badge&logo=windows&logoColor=white"></a>
+&nbsp;
+<a href="https://github.com/wolveschew/soundarchive-desktop-app/releases/latest/download/SoundCloudArchive.dmg"><img alt="Download macOS app" src="https://img.shields.io/badge/Download-macOS%20app-555555?style=for-the-badge&logo=apple&logoColor=white"></a>
 
-Install Python 3.10 or later, then from the repository directory:
+[See all releases](https://github.com/wolveschew/soundarchive-desktop-app/releases)
 
-**Windows**
+📌 Ready-to-install downloads are available for Windows and macOS. A Linux installer is not currently published.
 
-```powershell
-py -m pip install -r requirements.txt
-py desktop_app.py
-```
+</div>
 
-**macOS**
+> 👋 **Just want to use the app?** You’re in the right place. Choose your computer above, download the file, and follow the short steps below. You don’t need to open GitHub Actions or download any source code.
 
-```sh
-python3 -m pip install -r requirements.txt
-python3 desktop_app.py
-```
+### 🪟 Windows
 
-The app opens in a native window and serves its interface only on a loopback address. `python app.py` is also available for local browser-based development.
+1. Select **Download Windows installer** above and wait for the installer to finish downloading.
+2. Open the downloaded file. If Windows SmartScreen warns that the app is unsigned, check that it came from this repository's Releases page before choosing **Run anyway**.
+3. Keep the suggested install folder, or choose another folder where your Windows account can create files. Protected folders such as `C:\Program Files` need extra permissions and are not suitable for this per-user installer.
+4. Finish setup and open **SoundArchive Desktop App** from your Start menu. The installer adds Microsoft's WebView2 Runtime if it’s needed.
 
-## Data, checkpoints, and status
+### 🍎 macOS
 
-Exports and resumable checkpoints are saved under your user data directory:
+1. Select **Download macOS app** above and open the downloaded disk image.
+2. Drag **SoundArchive Desktop App** to your **Applications** folder.
+3. The app is unsigned. The first time you open it, Control-click the app, choose **Open**, and confirm the macOS warning.
 
-- Windows: `%LOCALAPPDATA%\SoundCloud Archive`
-- macOS: `~/Library/Application Support/SoundCloud Archive`
-- Linux: `$XDG_DATA_HOME/soundcloud-archive` or `~/.local/share/soundcloud-archive`
+## 🎵 Next: export your collections
 
-`likes.json` and `playlists.json` contain the records returned by the extractor. The app atomically checkpoints every 25 new entries and when a collection ends or fails. Resume refetches the public collection from its beginning and de-duplicates against saved item IDs; it is not a seek into SoundCloud's collection. **Re-fetch completed collections** discards that category's old checkpoint and starts over. `report.json` records per-category status, counts, failures, and the unsupported category; `state.json` records checkpoint status. Incomplete files are retained for recovery and can be downloaded when present.
+1. Paste a **public SoundCloud profile link**, such as `https://soundcloud.com/artist`.
+2. Select **Export collections** and keep the app open while it works.
+3. When it’s done, download `likes.json`, `playlists.json`, and the status report from the results.
 
-## Scope and limitations
+The app exports public likes and playlists only. **Following lists are not supported.** If your connection drops, start the same profile again to continue from a local checkpoint. The app refetches the collection from the beginning and skips items it already saved; it does not jump directly to the last saved item. Choose **Re-fetch completed collections** to discard saved progress for that category and start it again.
 
-- Likes and playlists are attempted only for a public profile and only through the supported yt-dlp extractor.
-- **Following lists are unsupported.** This app does not claim a verified public method and does not try private or undocumented endpoints.
-- A `complete` status means only that the extractor's returned iterator ended normally. This project has not verified live SoundCloud completeness; SoundCloud visibility, pagination, rate limits, and extractor behavior can limit results.
-- This is an exporter only. It has no login, account import, automated likes/follows, or bot-detection evasion.
-- Appearance preferences (accent color and compact cards) are stored locally in the desktop webview.
+## 📁 Where to find your files
 
-## Tests and desktop builds
+Your archive and appearance settings stay in a folder on your computer. The existing **SoundCloud Archive** folder name is kept so earlier exports and checkpoints remain available:
 
-Run the offline unit tests with:
+| System | Folder |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\SoundCloud Archive` |
+| macOS | `~/Library/Application Support/SoundCloud Archive` |
+| Linux | `$XDG_DATA_HOME/soundcloud-archive` or `~/.local/share/soundcloud-archive` |
+
+`likes.json` and `playlists.json` contain the records the public extractor returned. `report.json` lists each category's status and any errors. `state.json` tracks checkpoint status. Appearance preferences are saved in `settings.json`.
+
+## 🔒 Privacy and what to expect
+
+- No login, password, cookies, or account token is requested.
+- Only publicly accessible data returned by yt-dlp's maintained SoundCloud extractor is used. No undocumented endpoints are called.
+- An export marked **complete** means the extractor finished returning items normally. SoundCloud visibility, pagination, rate limits, and extractor behavior can limit results; complete coverage has not been verified.
+- The app does not import data, automate likes or follows, or evade bot detection.
+- Exports are sequential metadata requests; audio is not downloaded. No periodic status polling or other background export work runs while idle.
+
+## 🧰 Need a hand?
+
+**Windows says it cannot install to the selected folder:** choose the suggested folder under your Windows user account, or another folder where you can create files. The installer checks permissions before proceeding.
+
+**The app does not open:** install the latest version from the download button above and try again. The Windows app needs Microsoft Edge WebView2 Runtime; setup installs it if needed. If startup still fails, check `startup-error.log` in the local data folder listed above and share its contents when asking for help.
+
+**A collection failed or looks incomplete:** check that the SoundCloud profile and collection are public, review `report.json`, and try again later. A successful export only includes items the public extractor could return.
+
+**Unsigned app warning:** this project currently does not code-sign its Windows or macOS app. Only continue if you downloaded it from this repository's Releases page and trust the source.
+
+## 🛠️ For contributors
+
+Run the offline test suite with Python 3.10 or later:
 
 ```sh
 python -m unittest discover -s tests -v
 ```
 
-GitHub Actions runs those tests and builds the Windows executable and macOS disk image. Local builds require the packaging dependencies and a native build host for each operating system.
+GitHub Actions runs the tests and builds Windows and macOS installers. A version-tagged release is published after both platform builds succeed. The download buttons above always point to the latest published installers.

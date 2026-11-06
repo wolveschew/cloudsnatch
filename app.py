@@ -11,7 +11,7 @@ from platform import system
 
 from flask import Flask, jsonify, render_template, request, send_from_directory
 
-from exporter import export_profile, load_json, normalize_profile_url
+from exporter import atomic_json, export_profile, load_json, normalize_profile_url
 
 ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 if system() == "Windows":
@@ -37,6 +37,8 @@ _job = {
     "error": None,
     "report": None,
 }
+_DEFAULT_SETTINGS = {"accent": "orange", "compact": False}
+_ACCENT_CHOICES = {"orange", "amber", "blue"}
 
 
 def output_dir() -> Path:
@@ -121,6 +123,31 @@ def status():
             snapshot["report"] = report
             snapshot["categories"] = report.get("categories", {})
     return jsonify(snapshot)
+
+
+@app.route("/api/settings", methods=["GET", "POST"])
+def settings():
+    settings_path = output_dir() / "settings.json"
+    if request.method == "GET":
+        saved = load_json(settings_path, {})
+        if not isinstance(saved, dict):
+            saved = {}
+        accent = saved.get("accent")
+        return jsonify({
+            "accent": accent if isinstance(accent, str) and accent in _ACCENT_CHOICES else _DEFAULT_SETTINGS["accent"],
+            "compact": saved.get("compact") if isinstance(saved.get("compact"), bool) else _DEFAULT_SETTINGS["compact"],
+        })
+
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Send appearance settings as a JSON object."}), 400
+    accent = body.get("accent")
+    compact = body.get("compact")
+    if not isinstance(accent, str) or accent not in _ACCENT_CHOICES or not isinstance(compact, bool):
+        return jsonify({"error": "Choose a supported accent and a true/false compact setting."}), 400
+    saved = {"accent": accent, "compact": compact}
+    atomic_json(settings_path, saved)
+    return jsonify(saved)
 
 
 @app.get("/api/files/<name>")
