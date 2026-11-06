@@ -1,53 +1,36 @@
-# SoundCloud Public Data Exporter
+# SoundCloud Archive
 
-A small local command-line program to export publicly visible SoundCloud likes and playlists to JSON. It does not ask for a SoundCloud login, password, cookie, or token. It uses yt-dlp's maintained SoundCloud extractor for public collection pagination.
+A small local web app for exporting **publicly available** SoundCloud likes and playlists as JSON. It never asks for login credentials, cookies, or tokens. Data is saved on your computer.
 
-## Quick start
+## Run it (Windows)
 
-You need Python 3.10 or newer.
-
-**Windows:**
-
-1. Download this repository as a ZIP from the green **Code** button and choose **Download ZIP**. Extract it.
-2. Open the extracted folder, click the address bar in File Explorer, type `cmd`, and press Enter.
-3. Run:
+1. Download this repository as a ZIP from the green **Code** button and choose **Download ZIP**. Extract the ZIP.
+2. Open the extracted folder in File Explorer. Click the address bar, type `cmd`, and press Enter.
+3. Install Python 3.10+ if needed, then run:
 
    ```bat
    py -m pip install -r requirements.txt
-   py export_public.py
+   py app.py
    ```
 
-4. When prompted, paste the public profile URL, for example `https://soundcloud.com/artist`.
+4. Open **http://127.0.0.1:8765** in Chrome or another browser. Paste a public profile URL and click **Export data**.
+5. Download `likes.json`, `playlists.json`, and `report.json` from the page. Files are stored in the `soundcloud-export` folder beside the app.
 
-**macOS/Linux:**
+## macOS/Linux
 
 ```sh
 python3 -m pip install -r requirements.txt
-python3 export_public.py
+python3 app.py
 ```
 
-Or pass the URL directly:
+Then open http://127.0.0.1:8765.
 
-```sh
-python export_public.py https://soundcloud.com/artist
-```
+## Pagination, checkpoints, and limitations
 
-The exporter writes `likes.json`, `playlists.json`, and `report.json` in a `soundcloud-export` folder. Choose a different destination with `-o folder-name`.
+The app uses yt-dlp's SoundCloud public collection extractor and does not set a page/entry cap; it consumes the collection iterator through completion. It checkpoints every 25 new entries and at completion. If interrupted, starting the same profile again resumes by refetching from the beginning and de-duplicating IDs against the checkpoint. Re-fetch restarts the categories.
 
-## Checkpoints and errors
-
-Each category is written to a temporary file and atomically renamed only after yt-dlp finishes that collection. Re-running keeps completed category files and attempts any missing/failed category. To deliberately re-fetch completed categories, use `--retry`:
-
-```sh
-python export_public.py https://soundcloud.com/artist --retry
-```
-
-A successful JSON file contains the returned collection entries, metadata, item count, source profile URL, and export timestamp. `report.json` records per-category status and errors. If SoundCloud blocks a public page, the program reports that rather than claiming the export completed.
-
-## Limitations
-
-- This is an **exporter only**; it does not add likes, followings, or playlists to another account.
-- It exports public likes and public playlists where SoundCloud and yt-dlp allow access. Private or unavailable content cannot be retrieved without authorization.
-- The current yt-dlp SoundCloud extractor does not expose a profile followings collection. The report marks followings as unsupported instead of using undocumented endpoints.
-- SoundCloud may change or throttle public access. No tool can guarantee a complete export if the service does not return all entries. Check the reported counts and warnings.
-- This project does not download audio files.
+- Likes and playlists are exported only if SoundCloud makes them public and the extractor can retrieve them.
+- Followings are explicitly marked **unsupported**: the current supported extractor does not expose a followings collection. This app does not guess private or undocumented endpoints.
+- A collection is marked complete only after its iterator ends normally. Check `report.json` and the counts; no tool can guarantee data SoundCloud did not return.
+- This is an exporter, not a migration importer. It does not automate likes or follows, evade bot detection, or interact with destination accounts. SoundCloud's supported public interfaces do not provide a reliable bulk migration pathway for those actions.
+- The server binds to `127.0.0.1` only. Keep the app local; don't expose it to a public network.
