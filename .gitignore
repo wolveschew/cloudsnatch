@@ -1,4 +1,4 @@
-# Ignore environment and generated data
+# Environment secrets
 .env
 .env.*
 !.env.example
@@ -9,13 +9,8 @@
 __pycache__/
 *.py[cod]
 
-# Local export data
-/exports
-/soundcloud-export
-/state.json
-/failed.json
-/SoundCloudArchive.spec
-/SoundCloudArchive/
+# PyInstaller metadata
+/SoundArchiveDesktopApp.spec
 
 # Logs
 *.log

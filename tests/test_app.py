@@ -32,6 +32,7 @@ class AppTests(unittest.TestCase):
     def test_homepage_loads_local_export_ui_and_settings(self):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
+        self.assertIn(b"SoundArchive Desktop App", response.data)
         self.assertIn(b"Following lists", response.data)
         self.assertIn(b"Appearance settings", response.data)
         self.assertIn(b"Export only", response.data)
@@ -64,8 +65,33 @@ class AppTests(unittest.TestCase):
         output = Path(self.temp_dir.name)
         (output / "likes.json").write_text("{}", encoding="utf-8")
 
-        self.assertEqual(self.client.get("/api/files/likes.json").status_code, 200)
+        with self.client.get("/api/files/likes.json") as response:
+            self.assertEqual(response.status_code, 200)
         self.assertEqual(self.client.get("/api/files/unknown.json").status_code, 404)
+
+    def test_appearance_settings_persist_in_the_local_data_directory(self):
+        defaults = self.client.get("/api/settings")
+        self.assertEqual(defaults.json, {"accent": "orange", "compact": False})
+
+        saved = self.client.post("/api/settings", json={"accent": "blue", "compact": True})
+
+        self.assertEqual(saved.status_code, 200)
+        self.assertEqual(saved.json, {"accent": "blue", "compact": True})
+        self.assertEqual(self.client.get("/api/settings").json, saved.json)
+        self.assertTrue((Path(self.temp_dir.name) / "settings.json").is_file())
+
+    def test_appearance_settings_reject_invalid_values(self):
+        response = self.client.post("/api/settings", json={"accent": "invalid", "compact": "true"})
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_saved_appearance_settings_fall_back_to_defaults(self):
+        settings_path = Path(self.temp_dir.name) / "settings.json"
+        settings_path.write_text(json.dumps({"accent": [], "compact": 1}), encoding="utf-8")
+
+        response = self.client.get("/api/settings")
+
+        self.assertEqual(response.json, {"accent": "orange", "compact": False})
 
     def test_export_job_exposes_category_results(self):
         report = {

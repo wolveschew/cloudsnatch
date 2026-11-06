@@ -10,6 +10,7 @@ const accentSetting = document.getElementById("accent-setting");
 const compactSetting = document.getElementById("compact-setting");
 let timer;
 let initialized = false;
+let appearanceSaveQueue = Promise.resolve();
 
 function showError(message) {
   errorBox.textContent = message;
@@ -109,44 +110,56 @@ async function launch(force) {
     bar.classList.add("active");
     bar.style.width = "12%";
     clearInterval(timer);
-    timer = setInterval(refresh, 1000);
+    timer = setInterval(refresh, 2000);
     await refresh();
   } catch (error) {
     showError(error instanceof Error ? error.message : String(error));
   }
 }
 
-function loadAppearance() {
+async function loadAppearance() {
   try {
-    const accent = localStorage.getItem("sc-archive-accent");
-    const compact = localStorage.getItem("sc-archive-compact") === "true";
-    if (["orange", "amber", "blue"].includes(accent)) {
-      document.body.dataset.accent = accent;
-      accentSetting.value = accent;
-    }
-    compactSetting.checked = compact;
-    document.body.classList.toggle("compact", compact);
+    const response = await fetch("/api/settings");
+    const settings = await response.json();
+    if (!response.ok) throw new Error(settings.error || `Settings request failed (${response.status}).`);
+    accentSetting.value = settings.accent;
+    document.body.dataset.accent = settings.accent;
+    compactSetting.checked = settings.compact;
+    document.body.classList.toggle("compact", settings.compact);
   } catch (error) {
     showError(`Could not load appearance preferences: ${error.message}`);
   }
 }
 
+function saveAppearance() {
+  const settings = { accent: accentSetting.value, compact: compactSetting.checked };
+  appearanceSaveQueue = appearanceSaveQueue.then(async () => {
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `Settings request failed (${response.status}).`);
+      if (errorBox.textContent.startsWith("Could not save appearance preferences:")) {
+        errorBox.classList.add("hidden");
+      }
+    } catch (error) {
+      showError(`Could not save appearance preferences: ${error.message}`);
+    }
+  });
+  return appearanceSaveQueue;
+}
+
 accentSetting.addEventListener("change", () => {
   document.body.dataset.accent = accentSetting.value;
-  try {
-    localStorage.setItem("sc-archive-accent", accentSetting.value);
-  } catch (error) {
-    showError(`Could not save appearance preferences: ${error.message}`);
-  }
+  saveAppearance();
 });
 
 compactSetting.addEventListener("change", () => {
   document.body.classList.toggle("compact", compactSetting.checked);
-  try {
-    localStorage.setItem("sc-archive-compact", String(compactSetting.checked));
-  } catch (error) {
-    showError(`Could not save appearance preferences: ${error.message}`);
-  }
+  saveAppearance();
 });
 
 form.addEventListener("submit", event => {
