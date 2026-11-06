@@ -21,6 +21,10 @@ __pycache__/
 # Android signing material
 *.jks
 *.keystore
+*.p12
+*.pem
+*.key
+*.cer
 
 # Logs
 *.log

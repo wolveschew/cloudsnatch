@@ -155,10 +155,10 @@ jobs:
             echo "::error::Configure the four protected Android signing secrets listed in README.md before creating a release tag."
             exit 1
           fi
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/cloudsnatch-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/cloudsnatch-release.p12"
       - name: Build signed Android APK
         env:
-          CLOUDSNATCH_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/cloudsnatch-release.jks
+          CLOUDSNATCH_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/cloudsnatch-release.p12
           CLOUDSNATCH_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.CLOUDSNATCH_ANDROID_KEYSTORE_PASSWORD }}
           CLOUDSNATCH_ANDROID_KEY_ALIAS: ${{ secrets.CLOUDSNATCH_ANDROID_KEY_ALIAS }}
           CLOUDSNATCH_ANDROID_KEY_PASSWORD: ${{ secrets.CLOUDSNATCH_ANDROID_KEY_PASSWORD }}

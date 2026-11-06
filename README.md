@@ -80,17 +80,17 @@ The GitHub Actions workflow runs the desktop tests and builds, Android unit test
 
 ### Configure Android release signing
 
-Android updates must keep the same signing certificate. Create a release keystore privately and keep a secure backup; never commit the keystore or passwords. Configure these four repository Actions secrets before creating a release tag:
+Android updates must keep the same signing certificate. CloudSnatch uses a PKCS#12 release keystore (`.p12`). Keep a secure backup of the keystore and its passwords; never commit them. Configure these four repository Actions secrets before creating a release tag:
 
-- `CLOUDSNATCH_ANDROID_KEYSTORE_BASE64` — Base64-encoded keystore file.
+- `CLOUDSNATCH_ANDROID_KEYSTORE_BASE64` — Base64-encoded `.p12` keystore file.
 - `CLOUDSNATCH_ANDROID_KEYSTORE_PASSWORD` — keystore password.
 - `CLOUDSNATCH_ANDROID_KEY_ALIAS` — key alias.
 - `CLOUDSNATCH_ANDROID_KEY_PASSWORD` — key password.
 
-For example, on Windows, encode your private `.jks` file with:
+For example, on Windows, encode your private `.p12` file with:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("cloudsnatch-upload.jks"))
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("cloudsnatch-release.p12"))
 ```
 
 Store that output directly as the GitHub Actions secret; do not paste it into a commit or issue. The release workflow stops if any signing secret is missing, and verifies the APK signature before attaching it.
