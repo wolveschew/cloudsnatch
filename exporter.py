@@ -2,6 +2,8 @@
 """Export public SoundCloud likes and playlists with resumable local checkpoints."""
 from __future__ import annotations
 
+import csv
+import io
 import json
 import os
 import tempfile
@@ -16,6 +18,19 @@ UNSUPPORTED = {
     "followings": "Not available through the supported public yt-dlp SoundCloud extractor. No private or undocumented endpoint is used.",
 }
 CATEGORIES = {"likes": "likes", "playlists": "sets"}
+CSV_FIELDS = (
+    "id",
+    "title",
+    "url",
+    "webpage_url",
+    "uploader",
+    "uploader_id",
+    "duration",
+    "timestamp",
+    "upload_date",
+    "track_count",
+    "description",
+)
 
 
 def utc_now() -> str:
@@ -54,11 +69,51 @@ def stable_id(entry: dict[str, Any]) -> str:
     return str(entry.get("id") or entry.get("url") or entry.get("webpage_url") or json.dumps(entry, sort_keys=True))
 
 
+def csv_values(entry: dict[str, Any]) -> dict[str, Any]:
+    values = {field: entry.get(field, "") for field in CSV_FIELDS}
+    values["url"] = entry.get("url") or entry.get("webpage_url") or ""
+    values["webpage_url"] = entry.get("webpage_url") or entry.get("url") or ""
+    values["uploader"] = entry.get("uploader") or entry.get("artist") or ""
+    values["uploader_id"] = entry.get("uploader_id") or entry.get("artist_id") or ""
+    values["track_count"] = entry.get("track_count") or entry.get("playlist_count") or ""
+    description = values["description"]
+    values["description"] = description if isinstance(description, str) else ""
+    return values
+
+
+def csv_line(entry: dict[str, Any]) -> str:
+    stream = io.StringIO(newline="")
+    writer = csv.DictWriter(stream, fieldnames=CSV_FIELDS, lineterminator="")
+    writer.writerow(csv_values(entry))
+    return stream.getvalue()
+
+
+def csv_preview(entry: dict[str, Any]) -> str:
+    return ",".join(CSV_FIELDS) + "\n" + csv_line(entry)
+
+
+def write_csv(path: Path, entries: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8-sig", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=CSV_FIELDS)
+            writer.writeheader()
+            writer.writerows(csv_values(entry) for entry in entries)
+        os.replace(temp_name, path)
+    except BaseException:
+        try:
+            os.unlink(temp_name)
+        except OSError:
+            pass
+        raise
+
+
 def export_category(
     profile_url: str,
     category: str,
     output_dir: Path,
-    progress: Callable[[str, int, str], None],
+    progress: Callable[..., None],
     force: bool = False,
 ) -> dict[str, Any]:
     """Exhaust yt-dlp's paginated collection iterator; checkpoint every 25 items.
@@ -82,6 +137,12 @@ def export_category(
     if data_path.exists() and not force:
         cached = load_json(data_path, {})
         if isinstance(cached, dict) and cached.get("profile_url") == profile_url and cached.get("complete"):
+            cached_entries = cached.get("entries", [])
+            if isinstance(cached_entries, list):
+                write_csv(
+                    output_dir / f"{category}.csv",
+                    [entry for entry in cached_entries if isinstance(entry, dict)],
+                )
             progress(category, cached.get("count", 0), "already complete")
             return cached
 
@@ -102,6 +163,7 @@ def export_category(
                     entries.append(entry)
 
     source_url = f"{profile_url}/{CATEGORIES[category]}"
+    csv_path = output_dir / f"{category}.csv"
     state.setdefault("categories", {})[category] = {
         "status": "running", "count": len(entries), "updated_at": utc_now()
     }
@@ -135,6 +197,7 @@ def export_category(
             "count": len(entries),
             "complete": complete,
             "exported_at": utc_now(),
+            "csv_file": csv_path.name,
             "entries": entries,
         }
         atomic_json(data_path, payload)
@@ -148,28 +211,40 @@ def export_category(
     title = None
     collection_id = None
     try:
-        with YoutubeDL(ydl_options) as ydl:
-            info = ydl.extract_info(source_url, download=False)
-            if not isinstance(info, dict) or info.get("entries") is None:
-                raise RuntimeError("SoundCloud returned no public collection. It may be private, blocked, or unavailable.")
-            title = info.get("title")
-            collection_id = info.get("id")
-            iterator = iter(info["entries"])
-            new_since_checkpoint = 0
-            for entry in iterator:
-                if not isinstance(entry, dict):
-                    continue
-                key = stable_id(entry)
-                if key in seen:
-                    continue
-                seen.add(key)
-                entries.append(entry)
-                new_since_checkpoint += 1
-                progress(category, len(entries), "fetching all available pages")
-                if new_since_checkpoint >= 25:
-                    checkpoint(False, title, collection_id)
-                    new_since_checkpoint = 0
-            checkpoint(True, title, collection_id)
+        with csv_path.open("w", encoding="utf-8-sig", newline="") as csv_stream:
+            csv_writer = csv.DictWriter(csv_stream, fieldnames=CSV_FIELDS)
+            csv_writer.writeheader()
+            csv_writer.writerows(csv_values(entry) for entry in entries)
+            csv_stream.flush()
+
+            with YoutubeDL(ydl_options) as ydl:
+                info = ydl.extract_info(source_url, download=False)
+                if not isinstance(info, dict) or info.get("entries") is None:
+                    raise RuntimeError("SoundCloud returned no public collection. It may be private, blocked, or unavailable.")
+                title = info.get("title")
+                collection_id = info.get("id")
+                iterator = iter(info["entries"])
+                new_since_checkpoint = 0
+                for entry in iterator:
+                    if not isinstance(entry, dict):
+                        continue
+                    key = stable_id(entry)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    entries.append(entry)
+                    csv_writer.writerow(csv_values(entry))
+                    csv_stream.flush()
+                    new_since_checkpoint += 1
+                    if new_since_checkpoint >= 25:
+                        checkpoint(False, title, collection_id)
+                        new_since_checkpoint = 0
+                        progress(category, len(entries), "checkpoint saved", entry)
+                    else:
+                        progress(category, len(entries), "pending next checkpoint", entry)
+                checkpoint(True, title, collection_id)
+                if entries:
+                    progress(category, len(entries), "checkpoint saved", entries[-1])
     except Exception:
         checkpoint(False, title, collection_id)
         raise
@@ -187,7 +262,7 @@ def load_json(path: Path, fallback: Any) -> Any:
 def export_profile(
     profile: str,
     output_dir: Path,
-    progress: Callable[[str, int, str], None],
+    progress: Callable[..., None],
     force: bool = False,
 ) -> dict[str, Any]:
     profile_url = normalize_profile_url(profile)
@@ -205,7 +280,9 @@ def export_profile(
             result = export_category(profile_url, category, output_dir, progress, force)
             report["categories"][category] = {
                 "status": "complete" if result.get("complete") else "incomplete",
-                "count": result.get("count", 0), "file": f"{category}.json",
+                "count": result.get("count", 0),
+                "file": f"{category}.json",
+                "csv_file": f"{category}.csv",
             }
         except Exception as exc:
             errors.append({"category": category, "error": f"{type(exc).__name__}: {exc}"})
@@ -220,6 +297,7 @@ def export_profile(
                 failed_category.update({
                     "count": saved_checkpoint.get("count", 0),
                     "file": f"{category}.json",
+                    "csv_file": f"{category}.csv",
                 })
             report["categories"][category] = failed_category
         atomic_json(report_path, report)
@@ -229,6 +307,6 @@ def export_profile(
     }
     report["errors"] = errors
     report["exported_at"] = utc_now()
-    report["note"] = "Public export only. No account login, follow/like automation, or import is performed."
+    report["note"] = "Public metadata export only. No account login, follow/like automation, or audio download is performed."
     atomic_json(report_path, report)
     return report

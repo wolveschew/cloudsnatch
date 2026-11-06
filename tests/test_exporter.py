@@ -1,3 +1,4 @@
+import csv
 import json
 import tempfile
 import unittest
@@ -61,8 +62,42 @@ class ExporterTests(unittest.TestCase):
             self.assertEqual([entry["id"] for entry in result["entries"]], ["one", "two"])
             self.assertEqual(result["count"], 2)
             self.assertTrue(progress)
+            with (output_dir / "likes.csv").open(encoding="utf-8-sig", newline="") as stream:
+                csv_rows = list(csv.DictReader(stream))
+            self.assertEqual([row["id"] for row in csv_rows], ["one", "two"])
             state = json.loads((output_dir / "state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["categories"]["likes"]["status"], "complete")
+
+    def test_csv_rows_include_metadata_and_are_updated_while_items_are_processed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output_dir = Path(temporary)
+            FakeYoutubeDL.entries = [
+                {"id": "track-1", "title": "First track", "webpage_url": "https://soundcloud.com/artist/track"},
+            ]
+            progress = []
+
+            def on_progress(*args):
+                progress.append(args)
+                if len(args) == 4:
+                    with (output_dir / "likes.csv").open(encoding="utf-8-sig", newline="") as stream:
+                        self.assertEqual(len(list(csv.DictReader(stream))), 1)
+
+            with patch("exporter.YoutubeDL", FakeYoutubeDL):
+                result = export_category(
+                    "https://soundcloud.com/artist",
+                    "likes",
+                    output_dir,
+                    on_progress,
+                )
+
+            self.assertTrue(result["complete"])
+            with (output_dir / "likes.csv").open(encoding="utf-8-sig", newline="") as stream:
+                rows = list(csv.DictReader(stream))
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["id"], "track-1")
+            self.assertEqual(rows[0]["url"], "https://soundcloud.com/artist/track")
+            self.assertEqual(progress[-1][3]["title"], "First track")
+            self.assertEqual(progress[-1][2], "checkpoint saved")
 
     def test_refetch_does_not_preserve_stale_checkpoint_items(self):
         with tempfile.TemporaryDirectory() as temporary:

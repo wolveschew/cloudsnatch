@@ -1,4 +1,4 @@
-name: Build desktop apps
+name: Build SoundSnatch installers
 
 on:
   push:
@@ -18,9 +18,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact: soundcloud-archive-windows
+            artifact: soundsnatch-windows
           - os: macos-latest
-            artifact: soundcloud-archive-macos
+            artifact: soundsnatch-macos
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
         if: runner.os == 'Windows'
         run: >-
           pyinstaller --noconfirm --clean --windowed --onedir
-          --name SoundArchiveDesktopApp
+          --name SoundSnatch
           --add-data "templates;templates"
           --add-data "static;static"
           --collect-data webview
@@ -44,7 +44,7 @@ jobs:
           desktop_app.py
       - name: Smoke test packaged Windows app
         if: runner.os == 'Windows'
-        run: .\dist\SoundArchiveDesktopApp\SoundArchiveDesktopApp.exe --smoke-test
+        run: .\dist\SoundSnatch\SoundSnatch.exe --smoke-test
       - name: Download WebView2 runtime bootstrapper
         if: runner.os == 'Windows'
         shell: pwsh
@@ -67,9 +67,9 @@ jobs:
           $version = if ("${{ github.ref_type }}" -eq "tag") {
             "${{ github.ref_name }}".TrimStart("v")
           } else {
-            "1.0.0"
+            "1.1.0"
           }
-          & $compiler "/DAppVersion=$version" "installer\SoundArchiveDesktopApp.iss"
+          & $compiler "/DAppVersion=$version" "installer\SoundSnatch.iss"
           if ($LASTEXITCODE -ne 0) {
             throw "Inno Setup exited with code $LASTEXITCODE"
           }
@@ -77,26 +77,26 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           pyinstaller --noconfirm --clean --windowed \
-            --name SoundArchiveDesktopApp \
+            --name SoundSnatch \
             --add-data "templates:templates" \
             --add-data "static:static" \
             --collect-data webview \
             --collect-all yt_dlp \
             --hidden-import webview.platforms.cocoa \
-            --osx-bundle-identifier com.wolveschew.soundcloudarchive \
+            --osx-bundle-identifier com.wolveschew.soundsnatch \
             desktop_app.py
           # Smoke-test the actual packaged app, including its bundled UI resources.
-          dist/SoundArchiveDesktopApp.app/Contents/MacOS/SoundArchiveDesktopApp --smoke-test
+          dist/SoundSnatch.app/Contents/MacOS/SoundSnatch --smoke-test
           hdiutil create \
-            -volname "SoundArchive Desktop App" \
-            -srcfolder "dist/SoundArchiveDesktopApp.app" \
+            -volname "SoundSnatch" \
+            -srcfolder "dist/SoundSnatch.app" \
             -ov -format UDZO \
-            "dist/SoundCloudArchive.dmg"
+            "dist/SoundSnatch.dmg"
       - name: Upload app artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ runner.os == 'Windows' && 'dist/SoundCloudArchiveSetup.exe' || 'dist/SoundCloudArchive.dmg' }}
+          path: ${{ runner.os == 'Windows' && 'dist/SoundSnatchSetup.exe' || 'dist/SoundSnatch.dmg' }}
           if-no-files-found: error
 
   publish-release:
@@ -109,7 +109,7 @@ jobs:
       - name: Download platform installers
         uses: actions/download-artifact@v4
         with:
-          pattern: soundcloud-archive-*
+          pattern: soundsnatch-*
           path: release-assets
           merge-multiple: true
       - name: Publish GitHub release
