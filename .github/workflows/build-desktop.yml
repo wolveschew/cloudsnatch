@@ -3,6 +3,7 @@ name: Build desktop apps
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -11,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  test-and-build:
+  build:
     strategy:
       fail-fast: false
       matrix:
@@ -41,6 +42,34 @@ jobs:
           --collect-all yt_dlp
           --hidden-import webview.platforms.edgechromium
           desktop_app.py
+      - name: Download WebView2 runtime bootstrapper
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest `
+            -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" `
+            -OutFile "dist\MicrosoftEdgeWebView2Setup.exe"
+          if ((Get-Item "dist\MicrosoftEdgeWebView2Setup.exe").Length -lt 100000) {
+            throw "The WebView2 runtime bootstrapper download is unexpectedly small."
+          }
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $compiler)) {
+            throw "Inno Setup compiler was not found at $compiler"
+          }
+          $version = if ("${{ github.ref_type }}" -eq "tag") {
+            "${{ github.ref_name }}".TrimStart("v")
+          } else {
+            "1.0.0"
+          }
+          & $compiler "/DAppVersion=$version" "installer\SoundCloudArchive.iss"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup exited with code $LASTEXITCODE"
+          }
       - name: Build macOS application and disk image
         if: runner.os == 'macOS'
         run: |
@@ -62,5 +91,25 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ runner.os == 'Windows' && 'dist/SoundCloudArchive.exe' || 'dist/SoundCloudArchive.dmg' }}
+          path: ${{ runner.os == 'Windows' && 'dist/SoundCloudArchiveSetup.exe' || 'dist/SoundCloudArchive.dmg' }}
           if-no-files-found: error
+
+  publish-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download platform installers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: soundcloud-archive-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-assets/*
+          fail_on_unmatched_files: true

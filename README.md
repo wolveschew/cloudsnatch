@@ -2,11 +2,13 @@
 
 A simple local desktop app for saving **publicly accessible** SoundCloud likes and playlists as JSON. The app does not ask for an account login, password, cookies, or token. It only uses yt-dlp's maintained public SoundCloud extractor; it does not call undocumented endpoints.
 
-## Install a packaged app
+## Install the Windows release
 
-Windows `.exe` and macOS `.dmg` builds are attached as artifacts to the **Build desktop apps** GitHub Actions workflow. Open a successful workflow run, download the artifact for your operating system, and launch the app. Windows builds require the Microsoft Edge WebView2 Runtime. macOS builds are unsigned; macOS may require Control-clicking the app and choosing **Open** the first time.
+Download `SoundCloudArchiveSetup.exe` from the repository's **Releases** page, run it, and follow the installer prompts. The installer is per-user and does not require administrator permission. It installs Microsoft's WebView2 Runtime if needed, adds a Start menu shortcut, and can optionally add a desktop shortcut. The packaged app is unsigned, so Windows SmartScreen may show a security warning; verify that the release is from this repository before choosing **Run anyway**.
 
-The workflow builds artifacts for testing and download; it does not publish a release or sign the applications.
+Releases are created automatically when a `v*` version tag is pushed, after the Windows and macOS builds and tests succeed. The Windows release asset is an `.exe` installer; the macOS release asset is an unsigned `.dmg`. On macOS, Gatekeeper may require Control-clicking the app and choosing **Open** the first time.
+
+Pull requests and normal pushes build downloadable CI artifacts but do not publish a release. To try those builds before a tagged release, download the Windows installer or macOS disk image from a successful **Build desktop apps** workflow run.
 
 ## Run from source
 
