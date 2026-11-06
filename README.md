@@ -8,7 +8,7 @@ Save metadata from **public SoundCloud likes and playlists** as CSV and JSON fil
 [![Builds](https://img.shields.io/github/actions/workflow/status/wolveschew/cloudsnatch/build-desktop.yml?branch=main&style=for-the-badge&label=Windows%20macOS%20Android)](https://github.com/wolveschew/cloudsnatch/actions/workflows/build-desktop.yml)
 [![MIT license](https://img.shields.io/github/license/wolveschew/cloudsnatch?style=for-the-badge)](LICENSE)
 
-## Install first
+## DOWNLOAD AND INSTALL
 
 <a href="https://github.com/wolveschew/cloudsnatch/releases/latest"><img alt="Download CloudSnatch for Windows" src="https://img.shields.io/badge/Download-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white"></a>
 &nbsp;
