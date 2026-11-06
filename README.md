@@ -1,55 +1,53 @@
-# soundcloud-migration-tool
+# SoundCloud Public Data Exporter
 
-A generic, resumable SoundCloud migration CLI for exporting and importing likes, followings, and playlists.
+A small local command-line program to export publicly visible SoundCloud likes and playlists to JSON. It does not ask for a SoundCloud login, password, cookie, or token. It uses yt-dlp's maintained SoundCloud extractor for public collection pagination.
 
-Important: This tool does not log into your SoundCloud account for you. It expects you to provide your own SoundCloud client ID / access token and source/destination profile URLs when you run it.
+## Quick start
 
-This project intentionally slows requests, saves checkpoints, and logs failed items instead of firing high-volume automation at SoundCloud.
+You need Python 3.10 or newer.
 
-## Features
+**Windows:**
 
-- Accept a source URL and a target URL at runtime
-- Export likes, followings, and playlists to local JSON
-- Save checkpoints after each page so exporting can resume
-- Back off on 429s, timeouts, and transient server errors
-- Write failed items to a final error log for later retry
-- Optionally perform import to the target account in a controlled, slow mode
+1. Download this repository as a ZIP from the green **Code** button and choose **Download ZIP**. Extract it.
+2. Open the extracted folder, click the address bar in File Explorer, type `cmd`, and press Enter.
+3. Run:
 
-## Setup
+   ```bat
+   py -m pip install -r requirements.txt
+   py export_public.py
+   ```
 
-```bash
-npm install
-cp .env.example .env
+4. When prompted, paste the public profile URL, for example `https://soundcloud.com/artist`.
+
+**macOS/Linux:**
+
+```sh
+python3 -m pip install -r requirements.txt
+python3 export_public.py
 ```
 
-## Required environment variables
+Or pass the URL directly:
 
-```env
-SOUNDCLOUD_SOURCE_URL=https://soundcloud.com/your-source
-SOUNDCLOUD_TARGET_URL=https://soundcloud.com/your-target
-SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id
-SOUNDCLOUD_SOURCE_TOKEN=oauth_access_token_for_source
-SOUNDCLOUD_TARGET_TOKEN=oauth_access_token_for_target
-OUTPUT_DIR=exports
-STATE_FILE=state.json
-FAILED_FILE=failed.json
-DRY_RUN=false
+```sh
+python export_public.py https://soundcloud.com/artist
 ```
 
-## Run
+The exporter writes `likes.json`, `playlists.json`, and `report.json` in a `soundcloud-export` folder. Choose a different destination with `-o folder-name`.
 
-```bash
-npm run dev
+## Checkpoints and errors
+
+Each category is written to a temporary file and atomically renamed only after yt-dlp finishes that collection. Re-running keeps completed category files and attempts any missing/failed category. To deliberately re-fetch completed categories, use `--retry`:
+
+```sh
+python export_public.py https://soundcloud.com/artist --retry
 ```
 
-## Dry run
+A successful JSON file contains the returned collection entries, metadata, item count, source profile URL, and export timestamp. `report.json` records per-category status and errors. If SoundCloud blocks a public page, the program reports that rather than claiming the export completed.
 
-```bash
-DRY_RUN=true npm run dev
-```
+## Limitations
 
-## Notes
-
-- SoundCloud requires valid access tokens and may deny or restrict bulk actions.
-- If the source is public but the likes/followings/playlists are behind authenticated endpoints, token-based access is required.
-- A resilient tool must not assume all actions succeed; it should checkpoint and record failures.
+- This is an **exporter only**; it does not add likes, followings, or playlists to another account.
+- It exports public likes and public playlists where SoundCloud and yt-dlp allow access. Private or unavailable content cannot be retrieved without authorization.
+- The current yt-dlp SoundCloud extractor does not expose a profile followings collection. The report marks followings as unsupported instead of using undocumented endpoints.
+- SoundCloud may change or throttle public access. No tool can guarantee a complete export if the service does not return all entries. Check the reported counts and warnings.
+- This project does not download audio files.
