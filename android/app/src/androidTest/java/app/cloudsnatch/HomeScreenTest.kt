@@ -1,6 +1,5 @@
 package app.cloudsnatch
 
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -15,9 +14,9 @@ class HomeScreenTest {
 
     @Test
     fun showsPublicOnlyExportAndUnsupportedCollections() {
-        composeRule.onNodeWithText("CLOUDSNATCH").assertExists()
-        composeRule.onNodeWithText("Public profile URL").assertExists()
-        composeRule.onNodeWithText("Export or resume").assertExists()
-        composeRule.onNodeWithText("Following and follower lists are not supported.").assertExists()
+        composeRule.onNodeWithText("CLOUDSNATCH").fetchSemanticsNode()
+        composeRule.onNodeWithText("Public profile URL").fetchSemanticsNode()
+        composeRule.onNodeWithText("Export or resume").fetchSemanticsNode()
+        composeRule.onNodeWithText("Following and follower lists are not supported.").fetchSemanticsNode()
     }
 }
