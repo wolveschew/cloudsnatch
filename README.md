@@ -20,6 +20,11 @@ Create local snapshots of **public SoundCloud likes, playlists, and playlist tra
 
 </div>
 
+<p align="center">
+  <img src="docs/images/cloudsnatch-preview.svg" alt="Illustrative CloudSnatch desktop interface preview with clearly labeled sample data, not a live export." width="100%">
+</p>
+<p align="center"><sub>Illustrative interface preview · sample values only · not a live export</sub></p>
+
 ### Windows
 
 1. Download and open the latest Windows `.exe` from [Releases](https://github.com/wolveschew/cloudsnatch/releases/latest).

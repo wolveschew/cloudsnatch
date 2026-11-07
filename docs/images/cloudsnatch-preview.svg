@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1320" viewBox="0 0 1440 1320" role="img" aria-labelledby="title description">
+  <title id="title">CloudSnatch desktop interface preview</title>
+  <desc id="description">An illustrative CloudSnatch interface with clearly labeled sample data, export status, live track IDs, and snapshot history.</desc>
+  <defs>
+    <radialGradient id="glow" cx="82%" cy="5%" r="65%">
+      <stop offset="0" stop-color="#542713" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#111112" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1d1d20"/>
+      <stop offset="1" stop-color="#161618"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="14" stdDeviation="20" flood-color="#000" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <rect width="1440" height="1320" fill="#111112"/>
+  <rect width="1440" height="1320" fill="url(#glow)"/>
+
+  <g font-family="Inter, Segoe UI, Arial, sans-serif">
+    <g transform="translate(220 28)">
+      <path d="M10 0h24a10 10 0 0 1 10 10v12a10 10 0 0 1-10 10H10A10 10 0 0 1 0 22V10A10 10 0 0 1 10 0Z" fill="#ff5a14"/>
+      <text x="7" y="24" fill="#fff" font-size="21" font-weight="850" letter-spacing="-2">CS</text>
+      <text x="58" y="14" fill="#f5f4f2" font-size="13" font-weight="800" letter-spacing="1.7">CLOUD<tspan fill="#ff8855">SNATCH</tspan></text>
+      <text x="58" y="31" fill="#a4a1a0" font-size="11">SoundCloud snapshot tool</text>
+      <g transform="translate(845 1)">
+        <rect width="135" height="29" rx="15" fill="#1b2922" stroke="#285d48"/>
+        <circle cx="15" cy="14" r="4" fill="#70d7a7"/>
+        <text x="26" y="18" fill="#d2cfcd" font-size="10" font-weight="700" letter-spacing="1">LOCAL ONLY</text>
+      </g>
+      <path d="M0 54h1000" stroke="#303034"/>
+    </g>
+
+    <g transform="translate(220 124)">
+      <text x="0" y="64" fill="#f5f4f2" font-size="62" font-weight="820" letter-spacing="-3.6">Snapshot SoundCloud</text>
+      <text x="0" y="126" fill="#ff5a14" font-size="62" font-weight="820" letter-spacing="-3.6">likes and playlists.</text>
+      <text x="0" y="164" fill="#bcb8b5" font-size="15">Save public likes, playlists, and their track IDs as local CSV and JSON snapshots.</text>
+      <text x="0" y="187" fill="#bcb8b5" font-size="15">Watch every track appear as it’s found.</text>
+      <text x="0" y="226" fill="#e2dfdd" font-size="12" font-weight="650">Public profile URL</text>
+      <rect x="0" y="239" width="545" height="45" rx="8" fill="#1a1a1c" stroke="#3c3b3e"/>
+      <text x="16" y="267" fill="#f5f4f2" font-size="13">https://soundcloud.com/sample-artist</text>
+      <rect x="554" y="239" width="176" height="45" rx="8" fill="#ff5a14"/>
+      <text x="579" y="267" fill="#fff" font-size="13" font-weight="750">↓  Create snapshot</text>
+      <text x="0" y="308" fill="#969294" font-size="11">No login required. Only public profiles are supported. Exports stay in a separate folder for each profile.</text>
+      <text x="0" y="343" fill="#ff8855" font-size="15">⚙</text>
+      <text x="19" y="343" fill="#aaa7a5" font-size="11">Appearance</text>
+      <text x="91" y="343" fill="#ff8855" font-size="14">⌄</text>
+    </g>
+
+    <g transform="translate(220 500)" filter="url(#shadow)">
+      <rect width="1000" height="610" rx="13" fill="url(#panel)" stroke="#303034"/>
+      <text x="24" y="38" fill="#f5f4f2" font-size="21" font-weight="730">Export status</text>
+      <rect x="887" y="16" width="88" height="27" rx="14" fill="#14281f" stroke="#285d48"/>
+      <text x="905" y="34" fill="#aaf0cf" font-size="9" font-weight="800" letter-spacing="1.1">FINISHED</text>
+      <rect x="24" y="61" width="952" height="5" rx="3" fill="#333336"/>
+      <rect x="24" y="61" width="952" height="5" rx="3" fill="#ff5a14"/>
+      <text x="24" y="87" fill="#aaa7a5" font-size="11">Snapshot complete. Review each category status below.</text>
+
+      <g transform="translate(24 105)">
+        <rect width="306" height="81" rx="9" fill="#202023" stroke="#333337"/>
+        <rect x="12" y="20" width="34" height="34" rx="8" fill="#3b241b"/>
+        <text x="22" y="43" fill="#ff8855" font-size="18">♫</text>
+        <text x="57" y="29" fill="#f5f4f2" font-size="12" font-weight="700">Likes</text>
+        <text x="57" y="47" fill="#c0bcb9" font-size="10">Complete · 6 / 6 items</text>
+        <text x="57" y="65" fill="#777579" font-size="9">likes.json · likes.csv</text>
+        <rect x="231" y="35" width="65" height="25" rx="6" fill="none" stroke="#48474b"/>
+        <text x="241" y="51" fill="#e4e0de" font-size="9" font-weight="700">Open folder</text>
+      </g>
+      <g transform="translate(347 105)">
+        <rect width="306" height="81" rx="9" fill="#202023" stroke="#333337"/>
+        <rect x="12" y="20" width="34" height="34" rx="8" fill="#3b241b"/>
+        <text x="22" y="43" fill="#ff8855" font-size="17">▤</text>
+        <text x="57" y="29" fill="#f5f4f2" font-size="12" font-weight="700">Playlists</text>
+        <text x="57" y="47" fill="#c0bcb9" font-size="10">Complete · 3 / 3 items</text>
+        <text x="57" y="65" fill="#777579" font-size="9">playlists.json · playlists.csv</text>
+        <rect x="231" y="35" width="65" height="25" rx="6" fill="none" stroke="#48474b"/>
+        <text x="241" y="51" fill="#e4e0de" font-size="9" font-weight="700">Open folder</text>
+      </g>
+      <g transform="translate(670 105)">
+        <rect width="306" height="81" rx="9" fill="#202023" stroke="#333337"/>
+        <rect x="12" y="20" width="34" height="34" rx="8" fill="#3b241b"/>
+        <text x="22" y="43" fill="#ff8855" font-size="18">♪</text>
+        <text x="57" y="29" fill="#f5f4f2" font-size="12" font-weight="700">Playlist tracks</text>
+        <text x="57" y="47" fill="#c0bcb9" font-size="10">Complete · 12 / 12 items</text>
+        <text x="57" y="65" fill="#777579" font-size="9">playlist_tracks.json · .csv</text>
+        <rect x="231" y="35" width="65" height="25" rx="6" fill="none" stroke="#48474b"/>
+        <text x="241" y="51" fill="#e4e0de" font-size="9" font-weight="700">Open folder</text>
+      </g>
+      <g transform="translate(24 195)">
+        <rect width="306" height="63" rx="9" fill="#202023" stroke="#333337"/>
+        <rect x="12" y="14" width="34" height="34" rx="8" fill="#29292c"/>
+        <text x="22" y="37" fill="#858184" font-size="18">♡</text>
+        <text x="57" y="26" fill="#f5f4f2" font-size="12" font-weight="700">Following lists</text>
+        <text x="57" y="45" fill="#aaa6a4" font-size="10">Unsupported — no verified public method</text>
+        <rect x="229" y="13" width="65" height="21" rx="11" fill="#262629" stroke="#3a3a3e"/>
+        <text x="239" y="27" fill="#c1bdba" font-size="8" font-weight="800" letter-spacing=".8">UNSUPPORTED</text>
+      </g>
+
+      <path d="M24 280h952" stroke="#323235"/>
+      <text x="24" y="307" fill="#f5f4f2" font-size="12" font-weight="700">Live track IDs</text>
+      <text x="24" y="326" fill="#aaa7a5" font-size="10">9 track IDs found</text>
+      <rect x="917" y="291" width="59" height="22" rx="12" fill="#262629" stroke="#3a3a3e"/>
+      <text x="934" y="306" fill="#c1bdba" font-size="8" font-weight="800" letter-spacing=".8">LOCAL</text>
+
+      <g transform="translate(24 340)">
+        <rect width="952" height="161" rx="7" fill="#141416" stroke="#333337"/>
+        <path d="M0 32h952M0 64h952M0 96h952M0 128h952" stroke="#ffffff" stroke-opacity=".05"/>
+        <text x="12" y="21" fill="#ff8855" font-size="8" font-weight="800" letter-spacing=".8">LIKE</text>
+        <text x="88" y="21" fill="#e8e4e1" font-size="10" font-family="Consolas, monospace">1536874920</text>
+        <text x="281" y="21" fill="#aaa7a5" font-size="10">First Light</text>
+        <text x="12" y="53" fill="#ff8855" font-size="8" font-weight="800" letter-spacing=".8">LIKE</text>
+        <text x="88" y="53" fill="#e8e4e1" font-size="10" font-family="Consolas, monospace">1536874921</text>
+        <text x="281" y="53" fill="#aaa7a5" font-size="10">Quiet Signals</text>
+        <text x="12" y="85" fill="#ff8855" font-size="8" font-weight="800" letter-spacing=".8">PLAYLIST</text>
+        <text x="88" y="85" fill="#e8e4e1" font-size="10" font-family="Consolas, monospace">1536874930</text>
+        <text x="281" y="85" fill="#aaa7a5" font-size="10">Aerial Lines</text>
+        <text x="12" y="117" fill="#ff8855" font-size="8" font-weight="800" letter-spacing=".8">PLAYLIST</text>
+        <text x="88" y="117" fill="#e8e4e1" font-size="10" font-family="Consolas, monospace">1536874931</text>
+        <text x="281" y="117" fill="#aaa7a5" font-size="10">Blue Hour</text>
+        <text x="12" y="149" fill="#ff8855" font-size="8" font-weight="800" letter-spacing=".8">PLAYLIST</text>
+        <text x="88" y="149" fill="#e8e4e1" font-size="10" font-family="Consolas, monospace">1536874932</text>
+        <text x="281" y="149" fill="#aaa7a5" font-size="10">Slow Motion</text>
+      </g>
+
+      <path d="M24 523h952" stroke="#323235"/>
+      <text x="24" y="549" fill="#f5f4f2" font-size="12" font-weight="700">Snapshot history</text>
+      <text x="24" y="569" fill="#aaa7a5" font-size="10">2 local snapshots for this profile</text>
+      <rect x="750" y="535" width="150" height="34" rx="7" fill="none" stroke="#48474b"/>
+      <text x="771" y="556" fill="#e4e0de" font-size="10" font-weight="700">Compare latest two</text>
+      <text x="921" y="556" fill="#aaa6a4" font-size="10">Clear history</text>
+      <path d="M24 588h952" stroke="#323235"/>
+      <text x="24" y="600" fill="#aaa6a4" font-size="10">Download status report</text>
+      <text x="754" y="600" fill="#aaa6a4" font-size="10">Start over and replace saved files</text>
+    </g>
+
+    <g transform="translate(220 1130)">
+      <rect width="1000" height="61" rx="8" fill="#1d1916" stroke="#433328"/>
+      <circle cx="24" cy="29" r="10" fill="#3b241b"/>
+      <text x="21" y="33" fill="#ff8855" font-size="12" font-weight="800">!</text>
+      <text x="47" y="24" fill="#f6d4c3" font-size="11" font-weight="700">Public metadata only.</text>
+      <text x="47" y="42" fill="#bcb4ae" font-size="10">No sign-in or audio downloads. “Complete” means the public extractor finished, not that every item was found.</text>
+    </g>
+    <text x="220" y="1236" fill="#a4a1a0" font-size="10">Open source · No app analytics</text>
+    <text x="1050" y="1236" fill="#a4a1a0" font-size="10">Independent of SoundCloud</text>
+
+    <g transform="translate(1230 34)">
+      <rect width="180" height="27" rx="14" fill="#26180f" stroke="#ff7a36"/>
+      <text x="12" y="17" fill="#ffad7a" font-size="8" font-weight="800" letter-spacing=".7">PREVIEW · SAMPLE DATA</text>
+    </g>
+    <text x="220" y="1285" fill="#777579" font-size="10">Illustrative interface preview · sample values only · not a live export</text>
+  </g>
+</svg>
