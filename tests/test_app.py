@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import app as app_module
+from exporter import create_snapshot
 
 
 class AppTests(unittest.TestCase):
@@ -22,7 +23,9 @@ class AppTests(unittest.TestCase):
                 "error": None,
                 "report": None,
                 "latest_item": None,
+                "track_ids": [],
             })
+            app_module._track_id_keys.clear()
         self.client = app_module.app.test_client()
 
     def tearDown(self):
@@ -34,7 +37,10 @@ class AppTests(unittest.TestCase):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"CloudSnatch", response.data)
-        self.assertIn(b"Latest export item", response.data)
+        self.assertIn(b"Latest snapshot item", response.data)
+        self.assertIn(b"SoundCloud snapshot tool", response.data)
+        self.assertIn(b"Live track IDs", response.data)
+        self.assertIn(b"Snapshot history", response.data)
         self.assertIn(b"Open folder", response.data)
         self.assertIn(b"Following lists", response.data)
         self.assertIn(b"Appearance", response.data)
@@ -67,8 +73,11 @@ class AppTests(unittest.TestCase):
     def test_downloads_only_allowlisted_archive_files(self):
         output = Path(self.temp_dir.name)
         (output / "likes.json").write_text("{}", encoding="utf-8")
+        (output / "playlist_tracks.json").write_text("{}", encoding="utf-8")
 
         with self.client.get("/api/files/likes.json") as response:
+            self.assertEqual(response.status_code, 200)
+        with self.client.get("/api/files/playlist_tracks.json") as response:
             self.assertEqual(response.status_code, 200)
         self.assertEqual(self.client.get("/api/files/unknown.json").status_code, 404)
 
@@ -118,6 +127,57 @@ class AppTests(unittest.TestCase):
         self.assertEqual(response.json["latest_item"]["category"], "likes")
         self.assertIn('"title": "First track"', response.json["latest_item"]["json"])
         self.assertIn("track-1", response.json["latest_item"]["csv"])
+
+    def test_track_id_feed_is_paged_and_not_repeated_in_status_payload(self):
+        app_module.update_progress(
+            "likes",
+            1,
+            "pending next checkpoint",
+            {"id": "track-1", "title": "First track"},
+            10,
+        )
+        app_module.update_progress(
+            "playlist_tracks",
+            1,
+            "track saved",
+            {"id": "track-2", "title": "Playlist track"},
+            3,
+        )
+
+        status = self.client.get("/api/status")
+        first_page = self.client.get("/api/track-ids?after=0")
+        second_page = self.client.get("/api/track-ids?after=1")
+
+        self.assertNotIn("track_ids", status.json)
+        self.assertEqual([item["id"] for item in first_page.json["items"]], ["track-1", "track-2"])
+        self.assertEqual(first_page.json["total"], 2)
+        self.assertEqual([item["id"] for item in second_page.json["items"]], ["track-2"])
+        self.assertEqual(self.client.get("/api/track-ids?after=-1").status_code, 400)
+
+    def test_snapshot_routes_list_compare_and_clear_only_history(self):
+        profile = "https://soundcloud.com/artist"
+        directory = app_module.account_output_dir(profile)
+        directory.mkdir(parents=True)
+        data_path = directory / "likes.json"
+        categories = {
+            name: {"status": "complete"}
+            for name in ("likes", "playlists", "playlist_tracks")
+        }
+        data_path.write_text(json.dumps({"entries": [{"id": "old"}]}), encoding="utf-8")
+        create_snapshot(directory, {"profile_url": profile, "categories": categories})
+        data_path.write_text(json.dumps({"entries": [{"id": "new"}]}), encoding="utf-8")
+        create_snapshot(directory, {"profile_url": profile, "categories": categories})
+
+        snapshots = self.client.get(f"/api/snapshots?url={profile}")
+        comparison = self.client.post("/api/compare-snapshots", json={"url": profile})
+        cleared = self.client.post("/api/delete-snapshots", json={"url": profile})
+
+        self.assertEqual(snapshots.status_code, 200)
+        self.assertEqual(len(snapshots.json["snapshots"]), 2)
+        self.assertEqual(comparison.json["categories"]["likes"]["added_ids"], ["new"])
+        self.assertEqual(cleared.status_code, 200)
+        self.assertEqual(self.client.get(f"/api/snapshots?url={profile}").json["snapshots"], [])
+        self.assertTrue(data_path.is_file())
 
     def test_open_folder_rejects_non_profile_urls(self):
         response = self.client.post("/api/open-folder", json={"url": "https://example.com/artist"})

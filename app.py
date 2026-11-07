@@ -18,7 +18,17 @@ from urllib.parse import unquote, urlparse
 
 from flask import Flask, jsonify, render_template, request, send_from_directory
 
-from exporter import atomic_json, csv_preview, export_profile, load_json, normalize_profile_url
+from exporter import (
+    atomic_json,
+    compare_latest_snapshots,
+    csv_preview,
+    delete_snapshot_history,
+    export_profile,
+    list_snapshots,
+    load_json,
+    normalize_profile_url,
+    track_csv_preview,
+)
 
 ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 if system() == "Windows":
@@ -44,7 +54,9 @@ _job = {
     "error": None,
     "report": None,
     "latest_item": None,
+    "track_ids": [],
 }
+_track_id_keys: set[tuple[str, str]] = set()
 _DEFAULT_SETTINGS = {"accent": "orange", "compact": False}
 _ACCENT_CHOICES = {"orange", "amber", "blue"}
 
@@ -64,7 +76,16 @@ def account_output_dir(profile_url: str) -> Path:
 def migrate_legacy_account(profile_url: str) -> Path:
     target = account_output_dir(profile_url)
     legacy = output_dir()
-    files = ("likes.json", "playlists.json", "report.json", "state.json")
+    files = (
+        "likes.json",
+        "likes.csv",
+        "playlists.json",
+        "playlists.csv",
+        "playlist_tracks.json",
+        "playlist_tracks.csv",
+        "report.json",
+        "state.json",
+    )
     matching = []
     for name in files:
         source = legacy / name
@@ -97,30 +118,72 @@ def update_progress(
     count: int,
     message: str,
     entry: dict[str, Any] | None = None,
+    total: int | None = None,
 ) -> None:
     with _lock:
         _job.setdefault("categories", {})[category] = {
             "status": "fetching",
             "count": count,
+            "total": total,
             "message": message,
         }
         _job["status"] = f"Fetching public {category}: {message} ({count})"
         if entry is not None:
+            track_id = entry.get("track_id") or entry.get("id")
+            if category in {"likes", "playlist_tracks"} and track_id is not None:
+                key = (category, str(track_id))
+                if key not in _track_id_keys:
+                    _track_id_keys.add(key)
+                    _job["track_ids"].append({
+                        "category": category,
+                        "id": str(track_id),
+                        "title": str(entry.get("title") or "Untitled track"),
+                        "playlist": str(entry.get("playlist_title") or ""),
+                    })
             json_preview = json.dumps(entry, ensure_ascii=False, indent=2)
             _job["latest_item"] = {
                 "category": category,
                 "count": count,
+                "id": str(track_id or ""),
+                "playlist": str(entry.get("playlist_title") or ""),
                 "title": str(entry.get("title") or entry.get("name") or "Untitled item"),
                 "json": json_preview[:6000],
                 "json_truncated": len(json_preview) > 6000,
-                "csv": csv_preview(entry),
+                "csv": (
+                    track_csv_preview(entry)
+                    if category == "playlist_tracks"
+                    else csv_preview(entry)
+                ),
                 "checkpoint": message == "checkpoint saved",
             }
 
 
 def run_job(profile_url: str, force: bool) -> None:
     try:
-        report = export_profile(profile_url, migrate_legacy_account(profile_url), update_progress, force)
+        directory = migrate_legacy_account(profile_url)
+        seeded = []
+        for category, filename in (("likes", "likes.json"), ("playlist_tracks", "playlist_tracks.json")):
+            data = load_json(directory / filename, {})
+            entries = data.get("entries", []) if isinstance(data, dict) else []
+            if isinstance(entries, list) and isinstance(data, dict) and not data.get("complete"):
+                for entry in entries:
+                    if isinstance(entry, dict):
+                        track_id = entry.get("track_id") or entry.get("id")
+                        if track_id is not None:
+                            seeded.append({
+                                "category": category,
+                                "id": str(track_id),
+                                "title": str(entry.get("title") or "Untitled track"),
+                                "playlist": str(entry.get("playlist_title") or ""),
+                            })
+        if not force:
+            with _lock:
+                for item in seeded:
+                    key = (item["category"], item["id"])
+                    if key not in _track_id_keys:
+                        _track_id_keys.add(key)
+                        _job["track_ids"].append(item)
+        report = export_profile(profile_url, directory, update_progress, force)
         with _lock:
             _job["report"] = report
             _job["categories"] = report.get("categories", {})
@@ -164,7 +227,9 @@ def start_export():
             "error": None,
             "report": None,
             "latest_item": None,
+            "track_ids": [],
         })
+        _track_id_keys.clear()
         thread = threading.Thread(target=run_job, args=(profile_url, retry), daemon=True)
         try:
             thread.start()
@@ -177,7 +242,11 @@ def start_export():
 @app.get("/api/status")
 def status():
     with _lock:
-        snapshot = copy.deepcopy(_job)
+        snapshot = {
+            key: copy.deepcopy(value)
+            for key, value in _job.items()
+            if key != "track_ids"
+        }
     target_dir = account_output_dir(snapshot["profile_url"]) if snapshot["profile_url"] else output_dir()
     snapshot["account_directory"] = str(target_dir)
     if not snapshot["running"] and snapshot["report"] is None:
@@ -189,6 +258,61 @@ def status():
             snapshot["report"] = report
             snapshot["categories"] = report.get("categories", {})
     return jsonify(snapshot)
+
+
+@app.get("/api/track-ids")
+def track_ids():
+    try:
+        offset = int(request.args.get("after", "0"))
+        if offset < 0:
+            raise ValueError
+    except ValueError:
+        return jsonify({"error": "The track ID cursor must be a non-negative integer."}), 400
+    with _lock:
+        values = _job["track_ids"]
+        end = min(offset + 500, len(values))
+        return jsonify({
+            "items": values[offset:end],
+            "next_offset": end,
+            "total": len(values),
+            "running": _job["running"],
+        })
+
+
+@app.get("/api/snapshots")
+def snapshots():
+    profile_input = request.args.get("url", "")
+    try:
+        profile_url = normalize_profile_url(profile_input)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"snapshots": list_snapshots(account_output_dir(profile_url))})
+
+
+@app.post("/api/compare-snapshots")
+def compare_snapshots():
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Send the public profile URL as a JSON object."}), 400
+    try:
+        profile_url = normalize_profile_url(str(body.get("url", "")))
+        result = compare_latest_snapshots(account_output_dir(profile_url))
+    except (ValueError, OSError, json.JSONDecodeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(result)
+
+
+@app.post("/api/delete-snapshots")
+def delete_snapshots():
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Send the public profile URL as a JSON object."}), 400
+    try:
+        profile_url = normalize_profile_url(str(body.get("url", "")))
+        delete_snapshot_history(account_output_dir(profile_url))
+    except (ValueError, OSError) as exc:
+        return jsonify({"error": f"Could not remove snapshot history: {exc}"}), 400
+    return jsonify({"ok": True})
 
 
 @app.post("/api/open-folder")
@@ -237,7 +361,16 @@ def settings():
 
 @app.get("/api/files/<name>")
 def download(name: str):
-    allowed = {"likes.json", "playlists.json", "likes.csv", "playlists.csv", "report.json", "state.json"}
+    allowed = {
+        "likes.json",
+        "playlists.json",
+        "likes.csv",
+        "playlists.csv",
+        "playlist_tracks.json",
+        "playlist_tracks.csv",
+        "report.json",
+        "state.json",
+    }
     if name not in allowed:
         return jsonify({"error": "Not found"}), 404
     with _lock:

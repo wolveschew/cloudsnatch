@@ -13,10 +13,13 @@ class HomeScreenTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun showsPublicOnlyExportAndUnsupportedCollections() {
+    fun showsSnapshotControlsAndUnsupportedCollections() {
         composeRule.onNodeWithText("CLOUDSNATCH").fetchSemanticsNode()
+        composeRule.onNodeWithText("SoundCloud snapshot tool").fetchSemanticsNode()
         composeRule.onNodeWithText("Public profile URL").fetchSemanticsNode()
-        composeRule.onNodeWithText("Export or resume").fetchSemanticsNode()
+        composeRule.onNodeWithText("Create snapshot or resume").fetchSemanticsNode()
+        composeRule.onNodeWithText("Snapshot progress").fetchSemanticsNode()
+        composeRule.onNodeWithText("Live track IDs · 0").fetchSemanticsNode()
         composeRule.onNodeWithText("Following and follower lists are not supported.").fetchSemanticsNode()
     }
 }

@@ -1,8 +1,8 @@
 <div align="center">
 
-# CloudSnatch — SoundCloud Likes & Playlist Export App
+# CloudSnatch — SoundCloud Snapshot Tool
 
-Save metadata from **public SoundCloud likes and playlists** as CSV and JSON files. CloudSnatch is an open-source app for **Windows, macOS, and Android**. It runs on your device: no CloudSnatch account, sign-in, or analytics.
+Create local snapshots of **public SoundCloud likes, playlists, and playlist tracks** as CSV and JSON. CloudSnatch is an open-source snapshot tool for **Windows, macOS, and Android**. It runs on your device: no CloudSnatch account, sign-in, or analytics.
 
 [![Latest release](https://img.shields.io/github/v/release/wolveschew/cloudsnatch?style=for-the-badge&color=ff5500)](https://github.com/wolveschew/cloudsnatch/releases/latest)
 [![Builds](https://img.shields.io/github/actions/workflow/status/wolveschew/cloudsnatch/build-desktop.yml?branch=main&style=for-the-badge&label=Windows%20macOS%20Android)](https://github.com/wolveschew/cloudsnatch/actions/workflows/build-desktop.yml)
@@ -19,6 +19,11 @@ Save metadata from **public SoundCloud likes and playlists** as CSV and JSON fil
 [Browse all releases](https://github.com/wolveschew/cloudsnatch/releases)
 
 </div>
+
+<p align="center">
+  <img src="docs/images/cloudsnatch-preview.svg" alt="Illustrative CloudSnatch desktop interface preview with clearly labeled sample data, not a live export." width="100%">
+</p>
+<p align="center"><sub>Illustrative interface preview · sample values only · not a live export</sub></p>
 
 ### Windows
 
@@ -38,20 +43,24 @@ Save metadata from **public SoundCloud likes and playlists** as CSV and JSON fil
 2. Open the downloaded APK and follow Android's install prompts. Android 10 or newer is required.
 3. If Android asks, allow installation from the app you used to download the APK.
 
-## Export your public collections
+## Create your first snapshot
 
 1. Paste a public SoundCloud profile URL, such as `https://soundcloud.com/artist`.
-2. Select **Export or resume** and keep the app open while it works.
-3. Watch likes and playlist status, counts, errors, and the latest CSV/JSON item as it is processed.
-4. Open the saved files:
+2. Select **Create snapshot** (or **Create snapshot or resume** on Android) and keep the app open while it works.
+3. Follow the progress bar and per-category status. When a reliable total is available, the bar shows progress toward it; otherwise it stays indeterminate rather than guessing.
+4. Watch the live track-ID list as liked tracks and tracks inside public playlists are found.
+5. Open the saved files:
    - **Windows and macOS:** choose **Open folder** for that profile.
-   - **Android:** files are saved in `Downloads/CloudSnatch/<profile>/`; use **Open Downloads** or **Share files**.
+   - **Android:** current files are saved in `Downloads/CloudSnatch/<profile>/`; use **Open Downloads** or **Share files**.
 
-Each profile has a separate folder. JSON checkpoints are saved every 25 new items; CSV rows are flushed as items arrive. Resuming refetches the public collection from the beginning and skips IDs already in the saved checkpoint. It does not seek directly to the last saved item. **Start over** replaces the files for the selected profile only.
+Each profile has a separate folder. Snapshots are timestamped and kept locally until you clear that profile's history. Compare the latest two snapshots to see how many likes, playlists, and playlist tracks were added or removed; categories that did not finish in both snapshots are marked as unavailable rather than compared. Clearing history keeps the current export files. On Android, snapshot history stays in the app's private storage and comparison is available in the app.
+
+Each run refreshes completed collections to create a current snapshot. If it finds an interrupted collection, it resumes from that checkpoint by refetching from the beginning and skipping IDs already saved; it does not seek directly to the last saved item. JSON checkpoints are saved every 25 new items, and CSV rows are flushed as items arrive. **Start over** discards the selected profile's incomplete checkpoints and replaces its current files, while keeping saved snapshot history.
 
 ## What it does—and does not do
 
-- Exports metadata from **public likes and playlists** as CSV and JSON.
+- Saves metadata from **public likes, playlists, and tracks inside public playlists** as CSV and JSON. Playlist contents are expanded with yt-dlp's maintained SoundCloud extractor; no audio is downloaded.
+- Shows track IDs while they are found and creates timestamped local snapshots that can be compared later.
 - Keeps checkpoints and working data on your device. Android asks for no broad storage permission; it uses Android's Downloads media collection for files it creates.
 - Makes public SoundCloud requests directly from your device using yt-dlp's maintained SoundCloud extractor. The app has no CloudSnatch server, ads, analytics, or account system.
 - **Does not support following or follower lists**, private accounts, login, OAuth, browser cookies, audio downloads, automated likes/follows, private endpoints, or bot-detection evasion.
@@ -77,8 +86,6 @@ gradle -p android :app:connectedDebugAndroidTest
 ```
 
 The GitHub Actions workflow runs the desktop tests and builds, Android unit tests, and an Android emulator UI test. A version-tagged release publishes Windows and macOS installers and a **release-signed** Android APK after all platform jobs pass.
-
-Android release signing is managed by the repository's release workflow. The workflow verifies the APK before publishing it.
 
 ### Privacy and security
 

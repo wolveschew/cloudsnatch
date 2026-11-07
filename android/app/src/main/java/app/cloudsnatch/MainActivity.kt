@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -39,6 +41,7 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -100,11 +103,19 @@ internal data class CategoryStatus(
     val status: String = "Waiting",
     val count: Int = 0,
     val detail: String = "",
+    val total: Int? = null,
+)
+
+internal data class TrackIdRecord(
+    val category: String,
+    val id: String,
 )
 
 internal data class LatestItem(
     val category: String,
     val count: Int,
+    val id: String,
+    val playlist: String,
     val title: String,
     val json: String,
     val csv: String,
@@ -114,10 +125,14 @@ internal data class LatestItem(
 
 internal data class ExportUiState(
     val profileUrl: String = "",
-    val status: String = "Enter a public profile URL to begin.",
+    val status: String = "Enter a public profile URL to create a snapshot.",
     val running: Boolean = false,
     val categories: Map<String, CategoryStatus> = emptyMap(),
     val latestItem: LatestItem? = null,
+    val trackIds: List<TrackIdRecord> = emptyList(),
+    val snapshotCount: Int = 0,
+    val snapshotHistoryLoading: Boolean = false,
+    val snapshotComparison: String? = null,
     val error: String? = null,
     val downloadUris: List<Uri> = emptyList(),
 )
@@ -167,6 +182,9 @@ internal class ExportViewModel(application: Application) : AndroidViewModel(appl
     private val _state = kotlinx.coroutines.flow.MutableStateFlow(ExportUiState())
     val state = _state.asStateFlow()
     private var exportJob: Job? = null
+    private var snapshotLoadJob: Job? = null
+    private var trackIdOffset = 0L
+    private val seenTrackIds = mutableSetOf<String>()
 
     fun startExport(profileInput: String, force: Boolean = false) {
         if (exportJob?.isActive == true) return
@@ -177,28 +195,43 @@ internal class ExportViewModel(application: Application) : AndroidViewModel(appl
             return
         }
 
+        snapshotLoadJob?.cancel()
         val outputDirectory = File(getApplication<Application>().filesDir, "accounts/${accountFolderName(profile)}")
         _state.value = _state.value.copy(
             profileUrl = profile,
-            status = "Preparing the public collection export.",
+            status = "Preparing the public snapshot.",
             running = true,
             error = null,
             latestItem = null,
+            categories = emptyMap(),
+            trackIds = emptyList(),
+            snapshotComparison = null,
+            snapshotCount = 0,
+            snapshotHistoryLoading = false,
             downloadUris = emptyList(),
         )
+        trackIdOffset = 0L
+        seenTrackIds.clear()
         exportJob = viewModelScope.launch {
             try {
-                val oldReport = withContext(Dispatchers.IO) {
-                    readReport(File(outputDirectory, "report.json"))
+                val oldSnapshots = withContext(Dispatchers.IO) {
+                    if (!Python.isStarted()) Python.start(AndroidPlatform(getApplication()))
+                    Python.getInstance().getModule("mobile_export")
+                    .callAttr("get_snapshots", outputDirectory.absolutePath).toString()
                 }
-                if (!force && oldReport.isNotEmpty()) {
-                    _state.value = _state.value.copy(categories = oldReport)
-                }
+                _state.value = _state.value.copy(snapshotCount = org.json.JSONArray(oldSnapshots).length())
 
                 if (!Python.isStarted()) {
                     Python.start(AndroidPlatform(getApplication()))
                 }
                 val progressFile = File(outputDirectory, "mobile-progress.json")
+                if (!outputDirectory.exists() && !outputDirectory.mkdirs()) {
+                    throw IOException("Could not prepare the local snapshot folder.")
+                }
+                if (progressFile.exists() && !progressFile.delete()) {
+                    throw IOException("Could not reset the local progress preview.")
+                }
+                File(outputDirectory, "mobile-track-ids.jsonl").writeText("")
                 val export = async(Dispatchers.IO) {
                     Python.getInstance()
                         .getModule("mobile_export")
@@ -206,6 +239,10 @@ internal class ExportViewModel(application: Application) : AndroidViewModel(appl
                         .toString()
                 }
                 while (isActive && !export.isCompleted) {
+                    val newTrackIds = withContext(Dispatchers.IO) { readNewTrackIds(progressFile.parentFile) }
+                    if (newTrackIds.isNotEmpty()) {
+                        _state.value = _state.value.copy(trackIds = _state.value.trackIds + newTrackIds)
+                    }
                     val progress = try {
                         withContext(Dispatchers.IO) { readProgress(progressFile) }
                     } catch (error: JSONException) {
@@ -233,26 +270,85 @@ internal class ExportViewModel(application: Application) : AndroidViewModel(appl
                 }
 
                 val reportJson = export.await()
+                val finalTrackIds = withContext(Dispatchers.IO) { readNewTrackIds(progressFile.parentFile) }
+                if (finalTrackIds.isNotEmpty()) {
+                    _state.value = _state.value.copy(trackIds = _state.value.trackIds + finalTrackIds)
+                }
                 val report = JSONObject(reportJson)
                 val categories = parseCategories(report)
                 val publishResult = withContext(Dispatchers.IO) {
                     DownloadPublisher.publish(getApplication(), profile, outputDirectory)
                 }
+                val savedSnapshots = withContext(Dispatchers.IO) {
+                    Python.getInstance().getModule("mobile_export")
+                        .callAttr("get_snapshots", outputDirectory.absolutePath).toString()
+                }
                 val failed = categories.values.any { it.status == "failed" }
                 _state.value = _state.value.copy(
-                    status = if (failed) "Export finished with errors. Saved files are in Downloads/CloudSnatch."
-                    else "Export complete. Saved files are in Downloads/CloudSnatch.",
+                    status = if (failed) "Snapshot finished with errors. Saved files are in Downloads/CloudSnatch."
+                    else "Snapshot complete. Saved files are in Downloads/CloudSnatch.",
                     running = false,
                     categories = categories,
+                    snapshotCount = org.json.JSONArray(savedSnapshots).length(),
                     latestItem = _state.value.latestItem?.copy(checkpoint = true),
                     error = publishResult.error,
                     downloadUris = publishResult.uris,
                 )
             } catch (error: Exception) {
                 _state.value = _state.value.copy(
-                    status = "Export stopped. Resume it to continue from the last checkpoint.",
+                    status =                     "Snapshot stopped. Resume it to continue from the last checkpoint.",
                     running = false,
                     error = error.message ?: error.javaClass.simpleName,
+                )
+            }
+        }
+    }
+
+    fun loadSnapshots(profileInput: String) {
+        val profile = try {
+            normalizeProfileUrl(profileInput)
+        } catch (_: IllegalArgumentException) {
+            snapshotLoadJob?.cancel()
+            if (!_state.value.running) {
+                _state.value = _state.value.copy(
+                    profileUrl = "",
+                    snapshotCount = 0,
+                    snapshotHistoryLoading = false,
+                    snapshotComparison = null,
+                    downloadUris = emptyList(),
+                )
+            }
+            return
+        }
+        if (exportJob?.isActive == true) return
+        if (_state.value.profileUrl == profile && _state.value.snapshotCount > 0) return
+        snapshotLoadJob?.cancel()
+        _state.value = _state.value.copy(
+            profileUrl = profile,
+            snapshotCount = 0,
+            snapshotHistoryLoading = true,
+            snapshotComparison = null,
+            error = null,
+            downloadUris = emptyList(),
+        )
+        val directory = File(getApplication<Application>().filesDir, "accounts/${accountFolderName(profile)}")
+        snapshotLoadJob = viewModelScope.launch {
+            try {
+                val count = withContext(Dispatchers.IO) {
+                    if (!Python.isStarted()) Python.start(AndroidPlatform(getApplication()))
+                    val result = Python.getInstance().getModule("mobile_export")
+                        .callAttr("get_snapshots", directory.absolutePath).toString()
+                    org.json.JSONArray(result).length()
+                }
+                _state.value = _state.value.copy(
+                    profileUrl = profile,
+                    snapshotCount = count,
+                    snapshotHistoryLoading = false,
+                )
+            } catch (error: Exception) {
+                _state.value = _state.value.copy(
+                    snapshotHistoryLoading = false,
+                    error = "Could not read local snapshot history: ${error.message}",
                 )
             }
         }
@@ -265,6 +361,55 @@ internal class ExportViewModel(application: Application) : AndroidViewModel(appl
             getApplication<Application>().startActivity(intent)
         } catch (_: android.content.ActivityNotFoundException) {
             _state.value = _state.value.copy(error = "No Downloads app is available on this device.")
+        }
+    }
+
+    fun compareSnapshots() {
+        val directory = _state.value.profileUrl.takeIf(String::isNotEmpty)?.let {
+            File(getApplication<Application>().filesDir, "accounts/${accountFolderName(it)}")
+        } ?: return
+        viewModelScope.launch {
+            try {
+                val comparison = withContext(Dispatchers.IO) {
+                    Python.getInstance().getModule("mobile_export")
+                        .callAttr("compare_snapshots", directory.absolutePath).toString()
+                }
+                val result = JSONObject(comparison)
+                val categories = result.getJSONObject("categories")
+                val lines = listOf("likes", "playlist_tracks", "playlists").map { name ->
+                    val item = categories.getJSONObject(name)
+                    if (!item.optBoolean("available", true)) {
+                        "${name.replace("_", " ")}: not compared (incomplete snapshot)"
+                    } else {
+                        "${name.replace("_", " ")}: +${item.optInt("added_count")} added · " +
+                            "${item.optInt("removed_count")} removed"
+                    }
+                }
+                _state.value = _state.value.copy(
+                    snapshotComparison = "${result.getJSONObject("older_snapshot").optString("snapshot_id")} → " +
+                        "${result.getJSONObject("newer_snapshot").optString("snapshot_id")}\n" +
+                        lines.joinToString("\n"),
+                )
+            } catch (error: Exception) {
+                _state.value = _state.value.copy(error = "Could not compare local snapshots: ${error.message}")
+            }
+        }
+    }
+
+    fun deleteSnapshots() {
+        val directory = _state.value.profileUrl.takeIf(String::isNotEmpty)?.let {
+            File(getApplication<Application>().filesDir, "accounts/${accountFolderName(it)}")
+        } ?: return
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    Python.getInstance().getModule("mobile_export")
+                        .callAttr("delete_snapshots", directory.absolutePath)
+                }
+                _state.value = _state.value.copy(snapshotCount = 0, snapshotComparison = null)
+            } catch (error: Exception) {
+                _state.value = _state.value.copy(error = "Could not clear snapshot history: ${error.message}")
+            }
         }
     }
 
@@ -291,18 +436,43 @@ internal class ExportViewModel(application: Application) : AndroidViewModel(appl
         })
     }
 
-    private fun readReport(path: File): Map<String, CategoryStatus> =
-        if (path.isFile) parseCategories(JSONObject(path.readText()))
-        else emptyMap()
+    private fun readNewTrackIds(directory: File?): List<TrackIdRecord> {
+        val path = directory?.let { File(it, "mobile-track-ids.jsonl") } ?: return emptyList()
+        if (!path.isFile || path.length() < trackIdOffset) return emptyList()
+        val records = mutableListOf<TrackIdRecord>()
+        java.io.RandomAccessFile(path, "r").use { stream ->
+            stream.seek(trackIdOffset)
+            while (true) {
+                val lineStart = stream.filePointer
+                val line = stream.readLine() ?: break
+                if (line.isEmpty()) continue
+                val value = try {
+                    JSONObject(line)
+                } catch (_: JSONException) {
+                    stream.seek(lineStart)
+                    break
+                }
+                trackIdOffset = stream.filePointer
+                val category = value.optString("category")
+                val id = value.optString("id")
+                val key = "$category:$id"
+                if (id.isNotEmpty() && seenTrackIds.add(key)) records += TrackIdRecord(category, id)
+            }
+        }
+        return records
+    }
 
     private fun readProgress(path: File): Triple<String, CategoryStatus, LatestItem?>? {
         if (!path.isFile) return null
         val progress = JSONObject(path.readText())
         val category = progress.optString("category")
+        if (category.isEmpty()) return null
         val latest = progress.optJSONObject("latest_item")?.let {
             LatestItem(
                 category = it.optString("category"),
                 count = it.optInt("count"),
+                id = it.optString("id"),
+                playlist = it.optString("playlist"),
                 title = it.optString("title"),
                 json = it.optString("json"),
                 csv = it.optString("csv"),
@@ -312,7 +482,12 @@ internal class ExportViewModel(application: Application) : AndroidViewModel(appl
         }
         return Triple(
             category,
-            CategoryStatus("Working", progress.optInt("count"), progress.optString("message")),
+            CategoryStatus(
+                "Working",
+                progress.optInt("count"),
+                progress.optString("message"),
+                if (progress.has("total") && !progress.isNull("total")) progress.optInt("total") else null,
+            ),
             latest,
         )
     }
@@ -321,7 +496,15 @@ internal class ExportViewModel(application: Application) : AndroidViewModel(appl
 private data class PublishResult(val uris: List<Uri>, val error: String?)
 
 private object DownloadPublisher {
-    private val fileNames = listOf("likes.json", "likes.csv", "playlists.json", "playlists.csv", "report.json")
+    private val fileNames = listOf(
+        "likes.json",
+        "likes.csv",
+        "playlists.json",
+        "playlists.csv",
+        "playlist_tracks.json",
+        "playlist_tracks.csv",
+        "report.json",
+    )
 
     fun publish(context: Context, profileUrl: String, outputDirectory: File): PublishResult {
         val resolver = context.contentResolver
@@ -393,12 +576,13 @@ private object DownloadPublisher {
 private fun parseCategories(report: JSONObject): Map<String, CategoryStatus> {
     val result = mutableMapOf<String, CategoryStatus>()
     val source = report.optJSONObject("categories") ?: return result
-    for (name in listOf("likes", "playlists", "followings")) {
+    for (name in listOf("likes", "playlists", "playlist_tracks", "followings")) {
         val category = source.optJSONObject(name) ?: continue
         result[name] = CategoryStatus(
             status = category.optString("status", "Waiting"),
             count = category.optInt("count"),
             detail = category.optString("error").ifEmpty { category.optString("reason") },
+            total = if (category.has("total") && !category.isNull("total")) category.optInt("total") else null,
         )
     }
     return result
@@ -420,6 +604,19 @@ private fun CloudSnatchApp(model: ExportViewModel = viewModel()) {
         mutableStateOf(context.getSharedPreferences("appearance", Context.MODE_PRIVATE).getString("accent", "Orange") ?: "Orange")
     }
     var confirmRefetch by rememberSaveable { mutableStateOf(false) }
+    var confirmDeleteSnapshots by rememberSaveable { mutableStateOf(false) }
+    val normalizedInput = try {
+        normalizeProfileUrl(profileUrl)
+    } catch (_: IllegalArgumentException) {
+        ""
+    }
+    val profileHistoryLoaded = normalizedInput.isNotEmpty() && normalizedInput == state.profileUrl
+    LaunchedEffect(profileUrl) {
+        if (profileUrl.isNotBlank()) {
+            delay(450)
+            model.loadSnapshots(profileUrl)
+        }
+    }
     val accent = androidx.compose.ui.graphics.Color(accentColors[selectedAccent] ?: accentColors.getValue("Orange"))
     val colorScheme = androidx.compose.material3.darkColorScheme(
         primary = accent,
@@ -455,7 +652,7 @@ private fun CloudSnatchApp(model: ExportViewModel = viewModel()) {
                             Spacer(Modifier.width(10.dp))
                             Column {
                                 Text("CLOUDSNATCH", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("SoundCloud likes & playlists", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("SoundCloud snapshot tool", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
@@ -487,12 +684,12 @@ private fun CloudSnatchApp(model: ExportViewModel = viewModel()) {
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            "Keep the public collections you love.",
+                            "Keep a snapshot of what you love.",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            "Save likes and playlists as CSV and JSON files. No login, no audio downloads.",
+                            "Save public likes, playlists, and their track IDs as local CSV and JSON. No login or audio downloads.",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -503,6 +700,8 @@ private fun CloudSnatchApp(model: ExportViewModel = viewModel()) {
                             value = profileUrl,
                             onValueChange = {
                                 profileUrl = it
+                                confirmRefetch = false
+                                confirmDeleteSnapshots = false
                                 model.clearError()
                             },
                             modifier = Modifier
@@ -516,7 +715,7 @@ private fun CloudSnatchApp(model: ExportViewModel = viewModel()) {
                         )
                         Button(
                             onClick = { model.startExport(profileUrl) },
-                            enabled = !state.running,
+                            enabled = !state.running && !state.snapshotHistoryLoading,
                             modifier = Modifier.fillMaxWidth().height(52.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
@@ -530,9 +729,9 @@ private fun CloudSnatchApp(model: ExportViewModel = viewModel()) {
                                     strokeWidth = 2.dp,
                                 )
                                 Spacer(Modifier.width(10.dp))
-                                Text("Exporting public collections…")
+                                Text("Creating snapshot…")
                             } else {
-                                Text("Export or resume")
+                                Text("Create snapshot or resume")
                             }
                         }
                         Text(
@@ -562,22 +761,114 @@ private fun CloudSnatchApp(model: ExportViewModel = viewModel()) {
 
                     Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Export status", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("Snapshot progress", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        val progressCategories = state.categories.values.filter { it.status != "unsupported" }
+                        val requiredCategories = listOf("likes", "playlists", "playlist_tracks")
+                        val hasKnownTotals = requiredCategories.all { name ->
+                            state.categories[name]?.total?.let { it >= 0 } == true
+                        }
+                        if (state.running && hasKnownTotals) {
+                            val total = progressCategories.sumOf { it.total ?: 0 }
+                            val count = progressCategories.sumOf { minOf(it.count, it.total ?: it.count) }
+                            val fraction = if (total == 0) 1f else (count.toFloat() / total).coerceIn(0f, 1f)
+                            LinearProgressIndicator(
+                                progress = { fraction },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            )
+                        } else if (state.running) {
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            )
+                        } else if (requiredCategories.all {
+                                state.categories[it]?.status == "complete"
+                            }) {
+                            LinearProgressIndicator(
+                                progress = { 1f },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            )
+                        } else {
+                            LinearProgressIndicator(
+                                progress = { 0f },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            )
+                        }
                         Text(state.status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (wide) {
                             Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                                 CategoryLine("Likes", state.categories["likes"], Modifier.weight(1f))
                                 CategoryLine("Playlists", state.categories["playlists"], Modifier.weight(1f))
+                                CategoryLine("Playlist tracks", state.categories["playlist_tracks"], Modifier.weight(1f))
                             }
                         } else {
                             CategoryLine("Likes", state.categories["likes"], Modifier.fillMaxWidth())
                             CategoryLine("Playlists", state.categories["playlists"], Modifier.fillMaxWidth())
+                            CategoryLine("Playlist tracks", state.categories["playlist_tracks"], Modifier.fillMaxWidth())
                         }
                         Text(
                             "Following and follower lists are not supported.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Live track IDs · ${state.trackIds.size}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Liked tracks and tracks found inside public playlists.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().height(250.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.small,
+                        ) {
+                            if (state.trackIds.isEmpty()) {
+                                androidx.compose.foundation.layout.Box(
+                                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                                    contentAlignment = Alignment.CenterStart,
+                                ) {
+                                    Text(
+                                        "Track IDs will appear as they are found.",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                            } else {
+                                LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+                                    itemsIndexed(
+                                        state.trackIds,
+                                        key = { index, item -> "$index:${item.category}:${item.id}" },
+                                    ) { _, item ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                if (item.category == "playlist_tracks") "PLAYLIST" else "LIKE",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            Text(
+                                                item.id,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                            )
+                                        }
+                                        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     state.latestItem?.let { LatestItemPreview(it) }
@@ -595,7 +886,38 @@ private fun CloudSnatchApp(model: ExportViewModel = viewModel()) {
                             }
                         }
                     }
-                    if (!state.running && state.profileUrl.isNotEmpty()) {
+                    if (profileHistoryLoaded) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                if (state.snapshotHistoryLoading) "Loading snapshot history…"
+                                else "Snapshot history · ${state.snapshotCount}",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            TextButton(
+                                onClick = model::compareSnapshots,
+                                enabled = state.snapshotCount >= 2 && !state.running && !state.snapshotHistoryLoading,
+                                modifier = Modifier.heightIn(min = 48.dp),
+                            ) {
+                                Text("Compare latest two snapshots")
+                            }
+                            TextButton(
+                                onClick = { confirmDeleteSnapshots = true },
+                                enabled = state.snapshotCount > 0 && !state.running && !state.snapshotHistoryLoading,
+                                modifier = Modifier.heightIn(min = 48.dp),
+                            ) {
+                                Text("Clear snapshot history")
+                            }
+                            state.snapshotComparison?.let {
+                                Text(
+                                    it,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    if (!state.running && !state.snapshotHistoryLoading && profileHistoryLoaded) {
                         TextButton(onClick = { confirmRefetch = true }, modifier = Modifier.heightIn(min = 48.dp)) {
                             Text("Start over and replace saved files")
                         }
@@ -603,7 +925,7 @@ private fun CloudSnatchApp(model: ExportViewModel = viewModel()) {
 
                     Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
                     Text(
-                        "Only publicly visible metadata is exported. CloudSnatch does not add analytics or send your archive to a CloudSnatch server. SoundCloud requests are made directly from your device; public collection results are not guaranteed complete.",
+                        "Only publicly visible metadata is saved. CloudSnatch does not add analytics or send your snapshots to a CloudSnatch server. SoundCloud requests are made directly from your device; public results are not guaranteed complete.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -616,7 +938,7 @@ private fun CloudSnatchApp(model: ExportViewModel = viewModel()) {
         AlertDialog(
             onDismissRequest = { confirmRefetch = false },
             title = { Text("Start this profile over?") },
-            text = { Text("This replaces the saved likes and playlist files for this profile. Other profiles are not affected.") },
+            text = { Text("This replaces the current likes, playlist, and track files for this profile. Previously created snapshots remain available for comparison.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmRefetch = false
@@ -628,6 +950,23 @@ private fun CloudSnatchApp(model: ExportViewModel = viewModel()) {
             },
         )
     }
+
+    if (confirmDeleteSnapshots) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteSnapshots = false },
+            title = { Text("Clear saved snapshot history?") },
+            text = { Text("This removes past snapshots for this profile but keeps the current exported files.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDeleteSnapshots = false
+                    model.deleteSnapshots()
+                }) { Text("Clear history") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteSnapshots = false }) { Text("Cancel") }
+            },
+        )
+    }
 }
 
 @Composable
@@ -635,7 +974,9 @@ private fun CategoryLine(name: String, item: CategoryStatus?, modifier: Modifier
     Column(modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         val status = item?.status ?: "Waiting"
-        val count = item?.count?.let { " · ${it} items" }.orEmpty()
+        val count = item?.count?.let {
+            " · $it${item.total?.let { total -> " / $total" }.orEmpty()} items"
+        }.orEmpty()
         Text(
             text = "$status$count${item?.detail?.let { " · $it" }.orEmpty()}",
             style = MaterialTheme.typography.bodySmall,
@@ -644,7 +985,11 @@ private fun CategoryLine(name: String, item: CategoryStatus?, modifier: Modifier
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            if (name == "Likes") "likes.json · likes.csv" else "playlists.json · playlists.csv",
+            when (name) {
+                "Likes" -> "likes.json · likes.csv"
+                "Playlists" -> "playlists.json · playlists.csv"
+                else -> "playlist_tracks.json · playlist_tracks.csv"
+            },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -664,11 +1009,18 @@ private fun LatestItemPreview(item: LatestItem) {
         }
         if (expanded) {
             Text(
-                "${item.category} · item ${item.count} · ${if (item.checkpoint) "checkpoint saved" else "JSON checkpoint pending"}",
+                "${item.category} · item ${item.count} · ${if (item.checkpoint) "snapshot checkpoint saved" else "JSON checkpoint pending"}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(item.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            if (item.id.isNotEmpty()) {
+                Text(
+                    "Track ID ${item.id}${item.playlist.takeIf(String::isNotEmpty)?.let { " · $it" }.orEmpty()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small) {
                 Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("JSON", style = MaterialTheme.typography.labelLarge)

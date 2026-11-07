@@ -4,7 +4,7 @@
 
 [Setup]
 AppId={{4F09DD22-2DC7-4DFB-8A96-ED1F0C27C486}
-AppName=CloudSnatch
+AppName=CloudSnatch - SoundCloud Snapshot Tool
 AppVersion={#AppVersion}
 AppPublisher=wolveschew
 DefaultDirName={localappdata}\Programs\CloudSnatch

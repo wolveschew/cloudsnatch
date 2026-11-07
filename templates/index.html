@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#111112">
-  <title>CloudSnatch — SoundCloud Likes &amp; Playlist Exporter</title>
-  <meta name="description" content="CloudSnatch saves public SoundCloud likes and playlists as CSV and JSON on Windows and macOS. No login, audio downloads, or analytics.">
-  <meta name="keywords" content="SoundCloud likes export, SoundCloud playlist export, SoundCloud CSV, SoundCloud JSON, Windows, macOS, CloudSnatch">
+  <title>CloudSnatch — SoundCloud Snapshot Tool</title>
+  <meta name="description" content="Create local snapshots of public SoundCloud likes, playlists, and playlist tracks as CSV and JSON on Windows and macOS.">
+  <meta name="keywords" content="SoundCloud snapshot, SoundCloud likes export, SoundCloud playlist export, SoundCloud track IDs, CSV, JSON, Windows, macOS, CloudSnatch">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -14,19 +14,19 @@
     <header class="topbar">
       <a class="brand-lockup" href="/" aria-label="CloudSnatch home">
         <span class="brand-mark" aria-hidden="true">CS</span>
-        <span><span class="brand">CLOUD<b>SNATCH</b></span><span class="subbrand">SoundCloud likes &amp; playlist exporter</span></span>
+        <span><span class="brand">CLOUD<b>SNATCH</b></span><span class="subbrand">SoundCloud snapshot tool</span></span>
       </a>
       <span class="local-badge"><i></i> LOCAL ONLY</span>
     </header>
 
     <section class="hero">
-      <h1>Export SoundCloud<br><em>likes and playlists.</em></h1>
-      <p class="intro">Save public collections as CSV and JSON. Watch items as they’re saved, then open that profile’s folder.</p>
+      <h1>Snapshot SoundCloud<br><em>likes and playlists.</em></h1>
+      <p class="intro">Save public likes, playlists, and their track IDs as local CSV and JSON snapshots. Watch every track appear as it’s found.</p>
       <form id="export-form">
         <label for="profile-url">Public profile URL</label>
         <div class="input-row">
           <input id="profile-url" type="url" autocomplete="url" placeholder="https://soundcloud.com/artist" required>
-          <button id="start" type="submit"><span aria-hidden="true">↓</span> Export collections</button>
+          <button id="start" type="submit"><span aria-hidden="true">↓</span> Create snapshot</button>
         </div>
         <p class="hint">No login required. Only public profiles are supported. Exports stay in a separate folder for each profile.</p>
       </form>
@@ -53,7 +53,7 @@
         <div><h2 id="archive-title">Export status</h2></div>
         <span id="status-pill" class="pill">READY</span>
       </div>
-      <div class="progress-track" role="progressbar" aria-label="Export progress"><div id="progress-bar"></div></div>
+      <div class="progress-track" role="progressbar" aria-label="Snapshot progress" aria-valuemin="0" aria-valuemax="100"><div id="progress-bar"></div></div>
       <p id="status-text" class="status-text">Paste a public profile URL to begin.</p>
 
       <div class="cards">
@@ -67,6 +67,11 @@
           <div class="card-copy"><h3>Playlists</h3><p id="playlists-state">Waiting</p><p class="file-names">playlists.json · playlists.csv</p></div>
           <button id="playlists-folder" class="download" type="button" disabled title="Open this profile's export folder">Open folder</button>
         </article>
+        <article class="card" id="playlist-tracks-card">
+          <span class="card-icon" aria-hidden="true">♪</span>
+          <div class="card-copy"><h3>Playlist tracks</h3><p id="playlist_tracks-state">Waiting</p><p class="file-names">playlist_tracks.json · .csv</p></div>
+          <button id="playlist-tracks-folder" class="download" type="button" disabled title="Open this profile's snapshot folder">Open folder</button>
+        </article>
         <article class="card unsupported-card">
           <span class="card-icon muted" aria-hidden="true">♡</span>
           <div class="card-copy"><h3>Following lists</h3><p id="following-state">Unsupported — no verified public method</p></div>
@@ -74,9 +79,20 @@
         </article>
       </div>
 
+      <section class="track-section" aria-labelledby="track-list-title">
+        <div class="track-section-head">
+          <div><h3 id="track-list-title">Live track IDs</h3><p id="track-count">No track IDs yet</p></div>
+          <span class="tag">LOCAL</span>
+        </div>
+        <div id="track-list" class="track-list" role="log" aria-label="Track IDs found during this snapshot">
+          <div id="track-list-content"></div>
+          <p id="track-empty" class="track-empty">Track IDs will appear here as public likes and playlist tracks are found.</p>
+        </div>
+      </section>
+
       <details class="write-preview">
-        <summary>Latest export item</summary>
-        <p id="preview-status" class="preview-status">The latest item appears here while the export runs.</p>
+        <summary>Latest snapshot item</summary>
+        <p id="preview-status" class="preview-status">The latest item appears here while the snapshot runs.</p>
         <div class="preview-columns">
           <div><h3>JSON record</h3><pre id="json-preview">Waiting for an item…</pre></div>
           <div><h3>CSV columns + row</h3><pre id="csv-preview">Waiting for an item…</pre></div>
@@ -84,6 +100,14 @@
       </details>
 
       <div id="error-box" class="error-box hidden" role="alert"></div>
+      <div class="snapshot-compare">
+        <div><h3>Snapshot history</h3><p id="snapshot-count">Create a snapshot to start a local history.</p></div>
+        <div class="snapshot-actions">
+          <button id="compare-snapshots" class="download" type="button" disabled>Compare latest two</button>
+          <button id="delete-snapshots" class="text-button" type="button" disabled>Clear history</button>
+        </div>
+      </div>
+      <p id="snapshot-diff" class="snapshot-diff hidden" aria-live="polite"></p>
       <div class="report-row">
         <a id="report-link" href="/api/files/report.json">Download status report</a>
         <button type="button" id="retry" class="text-button">Start over and replace saved files</button>
@@ -92,7 +116,7 @@
 
     <aside class="notice">
       <span class="notice-mark" aria-hidden="true">!</span>
-      <p><strong>Public metadata only.</strong> CloudSnatch does not sign in, download audio, or send your archive to a CloudSnatch server. SoundCloud may omit results; “complete” means the public extractor finished, not that every item was found.</p>
+      <p><strong>Public metadata only.</strong> CloudSnatch does not sign in, download audio, or send your snapshots to a CloudSnatch server. SoundCloud may omit results; “complete” means the public extractor finished, not that every item was found.</p>
     </aside>
     <footer><span>Open source · No app analytics</span><span>Independent of SoundCloud</span></footer>
   </main>
