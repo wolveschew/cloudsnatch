@@ -2,7 +2,7 @@
 
 # CloudSnatch — SoundCloud Snapshot Tool
 
-Create local snapshots of **public SoundCloud likes, playlists, and playlist tracks** as CSV and JSON. CloudSnatch is an open-source snapshot tool for **Windows, macOS, and Android**. It runs on your device: no CloudSnatch account, sign-in, or analytics.
+Create local snapshots of **public SoundCloud likes, playlists, and playlist tracks** as CSV and JSON. CloudSnatch is an open-source snapshot tool for **Windows, macOS, and Android**. It runs on your device: no account, sign-in, or analytics.
 
 [![Latest release](https://img.shields.io/github/v/release/wolveschew/cloudsnatch?style=for-the-badge&color=ff5500)](https://github.com/wolveschew/cloudsnatch/releases/latest)
 [![Builds](https://img.shields.io/github/actions/workflow/status/wolveschew/cloudsnatch/build-desktop.yml?branch=main&style=for-the-badge&label=Windows%20macOS%20Android)](https://github.com/wolveschew/cloudsnatch/actions/workflows/build-desktop.yml)
