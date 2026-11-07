@@ -78,7 +78,7 @@ def main() -> None:
     server_thread.start()
     try:
         webview.create_window(
-            "CloudSnatch",
+            "CloudSnatch — SoundCloud Snapshot Tool",
             f"http://127.0.0.1:{server.server_port}",
             min_size=(760, 620),
         )
